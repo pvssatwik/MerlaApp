@@ -5,7 +5,7 @@ const insertEggProduction = (req, res) => {
   const {
     farm_name, shed_name, flock_name, production_date,
     transaction_type, egg_type, egg_count, trip_no,
-    comments, who_created
+    commnets, who_created
   } = req.body;
 
   connection.execute({
@@ -13,7 +13,7 @@ const insertEggProduction = (req, res) => {
     binds: [
       farm_name, shed_name, flock_name, production_date,
       transaction_type, egg_type, egg_count, trip_no,
-      comments, who_created || 'APP_USER'
+      commnets , who_created || 'APP_USER'
     ],
     complete: (err, stmt, rows) => {
       if (err) {
@@ -80,7 +80,12 @@ const insertFeedConsumption = (req, res) => {
 const fetchEggProductions = (req, res) => {
   connection.execute({
     sqlText: `
-      SELECT * FROM MERLAFARMS.TRANSACTION.DAILY_EGG_PRODUCTION_SUMMARY
+      SELECT
+        SHED_NO, FARM_NAME, FLOCK_NO, SHED_NAME,
+        PRODUCTION_DATE, FLOCK_NAME, TRANSACTION_TYPE,
+        EGG_TYPE, EGG_COUNT, TRIP_NO, COMMENTS,
+        WHO_CREATED, WHEN_CREATED
+      FROM MERLAFARMS.TRANSACTION.DAILY_EGG_PRODUCTION_SUMMARY
       ORDER BY WHEN_CREATED DESC
       LIMIT 100
     `,

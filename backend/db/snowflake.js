@@ -5,6 +5,7 @@ const connection = snowflake.createConnection({
   account:   process.env.SNOWFLAKE_ACCOUNT,
   username:  process.env.SNOWFLAKE_USERNAME,
   password:  process.env.SNOWFLAKE_PASSWORD,
+  authenticator: 'SNOWFLAKE',
   database:  process.env.SNOWFLAKE_DATABASE,
   schema:    process.env.SNOWFLAKE_SCHEMA,
   warehouse: process.env.SNOWFLAKE_WAREHOUSE,

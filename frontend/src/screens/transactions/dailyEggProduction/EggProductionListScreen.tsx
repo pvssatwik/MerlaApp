@@ -33,54 +33,56 @@ const EggProductionListScreen: React.FC<{ navigation: any }> = ({ navigation }) 
   const onRefresh = () => { setRefreshing(true); loadRecords(); };
 
   const renderItem = ({ item }: { item: EggProductionRecord }) => (
-    <View style={styles.card}>
-      {/* Header row */}
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>
-          {item.SHED_NO} — {item.FLOCK_NO}
-        </Text>
-        <View style={[
-          styles.badge,
-          item.TRANSACTION_TYPE === 'PRODUCTION' ? styles.badgeGreen :
-          item.TRANSACTION_TYPE === 'DAMAGE'     ? styles.badgeRed   : styles.badgeBlue
-        ]}>
-          <Text style={styles.badgeText}>{item.TRANSACTION_TYPE || 'N/A'}</Text>
-        </View>
+  <View style={styles.card}>
+    <View style={styles.cardHeader}>
+      {/* Show SHED_NAME and FLOCK_NAME instead of SHED_NO/FLOCK_NO */}
+      <Text style={styles.cardTitle}>
+        {item.SHED_NAME} — {item.FLOCK_NAME}
+      </Text>
+      <View style={[
+        styles.badge,
+        item.TRANSACTION_TYPE === 'PRODUCTION' ? styles.badgeGreen :
+        item.TRANSACTION_TYPE === 'DAMAGE'     ? styles.badgeRed   : styles.badgeBlue
+      ]}>
+        <Text style={styles.badgeText}>{item.TRANSACTION_TYPE || 'N/A'}</Text>
       </View>
-
-      {/* Details */}
-      <View style={styles.row}>
-        <View style={styles.col}>
-          <Text style={styles.colLabel}>Date</Text>
-          <Text style={styles.colValue}>
-            {item.PRODUCTION_DATE?.split('T')[0] || '-'}
-          </Text>
-        </View>
-        <View style={styles.col}>
-          <Text style={styles.colLabel}>Egg Type</Text>
-          <Text style={styles.colValue}>{item.EGG_TYPE || '-'}</Text>
-        </View>
-        <View style={styles.col}>
-          <Text style={styles.colLabel}>Count</Text>
-          <Text style={[styles.colValue, styles.countText]}>
-            {item.EGG_COUNT?.toLocaleString()}
-          </Text>
-        </View>
-      </View>
-
-      {item.TRIP_NO ? (
-        <Text style={styles.tripText}>Trip: {item.TRIP_NO}</Text>
-      ) : null}
-
-      {item.COMMNETS ? (
-        <Text style={styles.comments} numberOfLines={1}>
-          💬 {item.COMMNETS}
-        </Text>
-      ) : null}
-
-      <Text style={styles.createdBy}>Added by: {item.WHO_CREATED}</Text>
     </View>
-  );
+
+    <View style={styles.row}>
+      <View style={styles.col}>
+        <Text style={styles.colLabel}>Farm</Text>
+        <Text style={styles.colValue}>{item.FARM_NAME}</Text>
+      </View>
+      <View style={styles.col}>
+        <Text style={styles.colLabel}>Date</Text>
+        <Text style={styles.colValue}>{item.PRODUCTION_DATE?.split('T')[0]}</Text>
+      </View>
+      <View style={styles.col}>
+        <Text style={styles.colLabel}>Egg Count</Text>
+        <Text style={[styles.colValue, styles.countText]}>
+          {item.EGG_COUNT?.toLocaleString()}
+        </Text>
+      </View>
+    </View>
+
+    <View style={styles.row}>
+      <View style={styles.col}>
+        <Text style={styles.colLabel}>Egg Type</Text>
+        <Text style={styles.colValue}>{item.EGG_TYPE || '-'}</Text>
+      </View>
+      <View style={styles.col}>
+        <Text style={styles.colLabel}>Trip No</Text>
+        <Text style={styles.colValue}>{item.TRIP_NO || '-'}</Text>
+      </View>
+    </View>
+
+    {item.COMMNETS ? (
+      <Text style={styles.comments} numberOfLines={1}>💬 {item.COMMNETS}</Text>
+    ) : null}
+
+    <Text style={styles.createdBy}>Added by: {item.WHO_CREATED}</Text>
+  </View>
+);
 
   if (loading) {
     return (

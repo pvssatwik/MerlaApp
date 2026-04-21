@@ -121,7 +121,7 @@ const EggProductionFormScreen: React.FC<{ navigation: any }> = ({ navigation }) 
         egg_type:         values.eggType,
         egg_count:        parseInt(values.eggCount),
         trip_no:          values.tripNo,
-        comments:         values.comments,
+        commnets:         values.comments,
         who_created:      'APP_USER',
       });
       Alert.alert('Success ✅', result.message, [
