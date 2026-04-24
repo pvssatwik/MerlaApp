@@ -1,112 +1,221 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from "react";
 import {
-  View, Text, TextInput, StyleSheet,
-  ScrollView, TouchableOpacity, Modal, FlatList,
-  ActivityIndicator, Alert, Platform
-} from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { API_BASE_URL, API_HEADERS} from '../config/api';
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  FlatList,
+  ActivityIndicator,
+  Alert,
+  Platform,
+} from "react-native";
+import {
+  fetchSheds,
+  fetchFlocks,
+  fetchFlocksByShed,
+  fetchFeeds,
+  fetchEggTypes,
+  fetchBirdLossTypes,
+  fetchEggTransactions,
+  fetchTrips,
+} from "../services/dropDownService";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { API_BASE_URL, API_HEADERS } from "../config/api";
 
 // ─── API Route Mapping ────────────────────────────────────
 const API_ROUTES: Record<string, string> = {
-  eggproduction:    '/api/transactions/egg-production',
-  birdLiveStock:    '/api/transactions/bird-live-stock',
-  feedConsumption:  '/api/transactions/feed-consumption',
-  flockMaster:      '/api/masters/flock',
-  feedShedStock:    '/api/transactions/feed-shed-stock',
-  rawMaterialStock: '/api/transactions/raw-material-stock',
-  feedProduction:   '/api/transactions/feed-production',
-  feedSupply:       '/api/transactions/feed-supply',
-  eggGodownStock:   '/api/transactions/egg-godown-stock',
-  eggSaleSummary:   '/api/transactions/egg-sale-summary',
+  eggproduction: "/api/transactions/egg-production",
+  birdLiveStock: "/api/transactions/bird-live-stock",
+  eggGodownStock: "/api/transactions/egg-godown-stock",
+  eggSaleSummary: "/api/transactions/egg-sale-summary",
+  feedConsumption: "/api/transactions/feed-consumption",
+  feedProduction: "/api/transactions/feed-production",
+  feedShedStock: "/api/transactions/feed-shed-stock",
+  feedSupply: "/api/transactions/feed-supply",
+};
+
+// ─── Fetch dropdown data by source ───────────────────────
+const fetchDropdownData = async (
+  apiSource: string,
+  dependsOnValue?: string,
+) => {
+  switch (apiSource) {
+    case "sheds":
+      return await fetchSheds();
+    case "flocks":
+      return await fetchFlocks();
+    case "flocksByShed":
+      return dependsOnValue ? await fetchFlocksByShed(dependsOnValue) : [];
+    case "feeds":
+      return await fetchFeeds();
+    case "eggTypes":
+      return await fetchEggTypes();
+    case "birdLossTypes":
+      return await fetchBirdLossTypes();
+    case "eggTransactions":
+      return await fetchEggTransactions();
+    case "trips":
+      return await fetchTrips();
+    default:
+      return [];
+  }
 };
 
 const DynamicFormScreen = ({ route }: any) => {
   const { title, fields, api } = route.params;
 
-  const [form, setForm]         = useState<any>({});
+  const [form, setForm] = useState<any>({});
   const [showDate, setShowDate] = useState<any>({});
-  const [dropdown, setDropdown] = useState<any>({ visible: false, field: null });
-  const [loading, setLoading]   = useState(false);
+  const [dropdown, setDropdown] = useState<any>({
+    visible: false,
+    field: null,
+    apiOptions: [],
+  });
+  const [loading, setLoading] = useState(false);
+  const [dropdownOptions, setDropdownOptions] = useState<Record<string, any[]>>(
+    {},
+  );
+  const [loadingDropdowns, setLoadingDropdowns] = useState(false);
+
+  // ─── Load all non-cascading API dropdowns on mount ────
+  useEffect(() => {
+    const loadDropdowns = async () => {
+      setLoadingDropdowns(true);
+      try {
+        const results: Record<string, any[]> = {};
+        for (const field of fields) {
+          if (field.type === "dropdown_api" && !field.dependsOn) {
+            results[field.name] = await fetchDropdownData(field.apiSource);
+          }
+        }
+        setDropdownOptions(results);
+      } catch (error) {
+        console.error("Failed to load dropdowns:", error);
+      } finally {
+        setLoadingDropdowns(false);
+      }
+    };
+    loadDropdowns();
+  }, []);
+
+  // ─── Set value + handle cascading ────────────────────
+  const handleValueChange = async (fieldName: string, value: any) => {
+    setForm((prev: any) => ({ ...prev, [fieldName]: value }));
+
+    // Find fields that depend on this field
+    const dependentFields = fields.filter(
+      (f: any) => f.dependsOn === fieldName,
+    );
+
+    for (const depField of dependentFields) {
+      // Reset dependent field value
+      setForm((prev: any) => ({ ...prev, [depField.name]: "" }));
+
+      // Fetch new options based on selected value
+      const data = await fetchDropdownData(depField.apiSource, value);
+      setDropdownOptions((prev) => ({ ...prev, [depField.name]: data }));
+    }
+  };
 
   const setValue = (key: string, value: any) =>
     setForm((prev: any) => ({ ...prev, [key]: value }));
 
-  const formatDate = (date: Date) => date.toISOString().split('T')[0];
+  const formatDate = (date: Date) => date.toISOString().split("T")[0];
 
   // ─── Validation ───────────────────────────────────────
   const validate = () => {
     for (let field of fields) {
       if (field.required && !form[field.name]) {
-        Alert.alert('Validation ⚠️', `${field.label} is required`);
+        Alert.alert("Validation ⚠️", `${field.label} is required`);
         return false;
       }
     }
     return true;
   };
 
-  // ─── Submit → Backend → SP → Snowflake ───────────────
+  // ─── Submit ───────────────────────────────────────────
   const handleSubmit = async () => {
     if (!validate()) return;
     setLoading(true);
 
     try {
-      // Format all dates
       const formattedForm: any = {};
       for (let field of fields) {
-        if (field.type === 'date' && form[field.name] instanceof Date) {
+        if (field.type === "date" && form[field.name] instanceof Date) {
           formattedForm[field.name] = formatDate(form[field.name]);
         } else {
           formattedForm[field.name] = form[field.name];
         }
       }
 
-      // Auto fields
-      formattedForm['farm_name']   = 'MERLA';
-      formattedForm['who_created'] = 'APP_USER';
+      formattedForm["farm_name"] = "MERLA_FARMS";
+      formattedForm["who_created"] = "APP_USER";
 
       const endpoint = API_ROUTES[api];
       if (!endpoint) {
-        Alert.alert('Error ❌', `No API mapped for: ${api}`);
+        Alert.alert("Error ❌", `No API mapped for: ${api}`);
         return;
       }
 
-      console.log('POST →', `${API_BASE_URL}${endpoint}`);
-      console.log('Body →', formattedForm);
+      console.log("POST →", `${API_BASE_URL}${endpoint}`);
+      console.log("Body →", formattedForm);
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method:  'POST',
+        method: "POST",
         headers: API_HEADERS,
-        body:    JSON.stringify(formattedForm),
+        body: JSON.stringify(formattedForm),
       });
 
       const result = await response.json();
 
       if (result.success) {
-        Alert.alert('Success ✅', result.message || 'Saved successfully!');
+        Alert.alert("Success ✅", result.message || "Saved successfully!");
         setForm({});
+        setDropdownOptions({});
       } else {
-        Alert.alert('Error ❌', result.error || 'Something went wrong');
+        Alert.alert("Error ❌", result.error || "Something went wrong");
       }
-
     } catch (error: any) {
       console.error(error);
-      Alert.alert('Error ❌', 'Could not connect to server.\nMake sure backend is running.');
+      Alert.alert(
+        "Error ❌",
+        "Could not connect to server.\nMake sure backend is running.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  // ─── Open dropdown modal ──────────────────────────────
+  const openDropdown = (field: any) => {
+    const options = dropdownOptions[field.name] || [];
+    setDropdown({ visible: true, field, apiOptions: options });
+  };
+
+  // ─── Render ───────────────────────────────────────────
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>{title}</Text>
 
+      {/* Loading indicator for dropdowns */}
+      {loadingDropdowns && (
+        <View style={styles.loadingBar}>
+          <ActivityIndicator size="small" color="#2563eb" />
+          <Text style={styles.loadingText}>Loading options...</Text>
+        </View>
+      )}
+
       {fields.map((field: any) => {
         // Hide transfer fields unless TRANSFERRED
         if (
-          (field.name === 'transfer_date' || field.name === 'transfer_volume') &&
-          form.current_status !== 'TRANSFERRED'
-        ) return null;
+          (field.name === "transfer_date" ||
+            field.name === "transfer_volume") &&
+          form.current_status !== "TRANSFERRED"
+        )
+          return null;
 
         return (
           <View key={field.name} style={styles.field}>
@@ -116,30 +225,39 @@ const DynamicFormScreen = ({ route }: any) => {
             </Text>
 
             {/* TEXT / NUMBER */}
-            {(field.type === 'text' || field.type === 'number') && (
+            {(field.type === "text" || field.type === "number") && (
               <TextInput
                 style={styles.input}
-                keyboardType={field.type === 'number' ? 'numeric' : 'default'}
+                keyboardType={field.type === "number" ? "numeric" : "default"}
                 placeholder={`Enter ${field.label}`}
-                value={form[field.name] || ''}
+                value={form[field.name] || ""}
                 onChangeText={(val) => {
-                  if (field.type === 'number') val = val.replace(/[^0-9]/g, '');
+                  if (field.type === "number") val = val.replace(/[^0-9]/g, "");
                   setValue(field.name, val);
                 }}
               />
             )}
 
             {/* DATE */}
-            {field.type === 'date' && (
+            {field.type === "date" && (
               <>
                 <TouchableOpacity
                   style={styles.input}
                   onPress={() =>
-                    setShowDate((prev: any) => ({ ...prev, [field.name]: true }))
+                    setShowDate((prev: any) => ({
+                      ...prev,
+                      [field.name]: true,
+                    }))
                   }
                 >
-                  <Text style={form[field.name] ? styles.dateText : styles.placeholder}>
-                    {form[field.name] ? formatDate(form[field.name]) : '📅 Select Date'}
+                  <Text
+                    style={
+                      form[field.name] ? styles.dateText : styles.placeholder
+                    }
+                  >
+                    {form[field.name]
+                      ? formatDate(form[field.name])
+                      : "📅 Select Date"}
                   </Text>
                 </TouchableOpacity>
 
@@ -148,9 +266,12 @@ const DynamicFormScreen = ({ route }: any) => {
                     value={form[field.name] || new Date()}
                     mode="date"
                     maximumDate={new Date()}
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
                     onChange={(e, date) => {
-                      setShowDate((prev: any) => ({ ...prev, [field.name]: false }));
+                      setShowDate((prev: any) => ({
+                        ...prev,
+                        [field.name]: false,
+                      }));
                       if (date) setValue(field.name, date);
                     }}
                   />
@@ -158,14 +279,60 @@ const DynamicFormScreen = ({ route }: any) => {
               </>
             )}
 
-            {/* DROPDOWN */}
-            {field.type === 'dropdown' && (
+            {/* STATIC DROPDOWN */}
+            {field.type === "dropdown" && (
               <TouchableOpacity
                 style={styles.input}
-                onPress={() => setDropdown({ visible: true, field })}
+                onPress={() =>
+                  setDropdown({
+                    visible: true,
+                    field,
+                    apiOptions: field.options || [],
+                  })
+                }
               >
-                <Text style={form[field.name] ? styles.dateText : styles.placeholder}>
-                  {form[field.name] || 'Select option ▼'}
+                <Text
+                  style={
+                    form[field.name] ? styles.dateText : styles.placeholder
+                  }
+                >
+                  {form[field.name] || "Select option ▼"}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* API DROPDOWN */}
+            {field.type === "dropdown_api" && (
+              <TouchableOpacity
+                style={[
+                  styles.input,
+                  field.dependsOn &&
+                    !form[field.dependsOn] &&
+                    styles.inputDisabled,
+                ]}
+                onPress={() => {
+                  if (field.dependsOn && !form[field.dependsOn]) {
+                    Alert.alert(
+                      "⚠️",
+                      `Please select ${field.dependsOn.replace("_", " ")} first`,
+                    );
+                    return;
+                  }
+                  openDropdown(field);
+                }}
+              >
+                <Text
+                  style={
+                    form[field.name] ? styles.dateText : styles.placeholder
+                  }
+                >
+                  {form[field.name]
+                    ? form[field.name]
+                    : loadingDropdowns
+                      ? "Loading..."
+                      : field.dependsOn && !form[field.dependsOn]
+                        ? `Select ${field.dependsOn.replace("_no", "").replace("_", " ")} first`
+                        : "Select option ▼"}
                 </Text>
               </TouchableOpacity>
             )}
@@ -173,16 +340,17 @@ const DynamicFormScreen = ({ route }: any) => {
         );
       })}
 
-      {/* SUBMIT */}
+      {/* SUBMIT BUTTON */}
       <TouchableOpacity
         style={[styles.button, loading && styles.buttonDisabled]}
         onPress={handleSubmit}
         disabled={loading}
       >
-        {loading
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.buttonText}>Submit</Text>
-        }
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Submit</Text>
+        )}
       </TouchableOpacity>
 
       {/* DROPDOWN MODAL */}
@@ -190,34 +358,60 @@ const DynamicFormScreen = ({ route }: any) => {
         <TouchableOpacity
           style={styles.overlay}
           activeOpacity={1}
-          onPress={() => setDropdown({ visible: false, field: null })}
+          onPress={() =>
+            setDropdown({ visible: false, field: null, apiOptions: [] })
+          }
         >
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>
-              {dropdown.field?.label}
-            </Text>
+            <Text style={styles.modalTitle}>{dropdown.field?.label}</Text>
             <FlatList
-              data={dropdown.field?.options || []}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.option,
-                    form[dropdown.field?.name] === item && styles.optionSelected,
-                  ]}
-                  onPress={() => {
-                    setValue(dropdown.field.name, item);
-                    setDropdown({ visible: false, field: null });
-                  }}
-                >
-                  <Text style={[
-                    styles.optionText,
-                    form[dropdown.field?.name] === item && styles.optionTextSelected,
-                  ]}>
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              data={dropdown.apiOptions || []}
+              keyExtractor={(item, index) =>
+                typeof item === "string" ? item : index.toString()
+              }
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>No options available</Text>
+              }
+              renderItem={({ item }) => {
+                // Handle both string options and object options
+                const label =
+                  typeof item === "string"
+                    ? item
+                    : item[dropdown.field?.labelKey] || "";
+
+                const value =
+                  typeof item === "string"
+                    ? item
+                    : item[dropdown.field?.valueKey] || "";
+
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.option,
+                      form[dropdown.field?.name] === value &&
+                        styles.optionSelected,
+                    ]}
+                    onPress={() => {
+                      handleValueChange(dropdown.field.name, value);
+                      setDropdown({
+                        visible: false,
+                        field: null,
+                        apiOptions: [],
+                      });
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.optionText,
+                        form[dropdown.field?.name] === value &&
+                          styles.optionTextSelected,
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
             />
           </View>
         </TouchableOpacity>
@@ -229,22 +423,69 @@ const DynamicFormScreen = ({ route }: any) => {
 export default DynamicFormScreen;
 
 const styles = StyleSheet.create({
-  container:          { padding: 16, backgroundColor: '#f3f4f6', paddingBottom: 40 },
-  title:              { fontSize: 22, fontWeight: '700', marginBottom: 20, color: '#1e3a5f' },
-  field:              { marginBottom: 14 },
-  label:              { marginBottom: 4, fontWeight: '500', color: '#374151' },
-  required:           { color: '#ef4444' },
-  input:              { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#fff' },
-  dateText:           { color: '#111827' },
-  placeholder:        { color: '#9ca3af' },
-  button:             { backgroundColor: '#2563eb', padding: 14, marginTop: 20, borderRadius: 10, alignItems: 'center' },
-  buttonDisabled:     { backgroundColor: '#93c5fd' },
-  buttonText:         { color: '#fff', fontWeight: '600', fontSize: 16 },
-  overlay:            { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20 },
-  modalBox:           { backgroundColor: '#fff', borderRadius: 12, padding: 10, maxHeight: 300 },
-  modalTitle:         { fontSize: 16, fontWeight: '600', padding: 10, color: '#1e3a5f', textAlign: 'center' },
-  option:             { padding: 14, borderBottomWidth: 1, borderColor: '#eee', borderRadius: 8 },
-  optionSelected:     { backgroundColor: '#dbeafe' },
-  optionText:         { color: '#111827' },
-  optionTextSelected: { color: '#2563eb', fontWeight: '600' },
+  container: { padding: 16, backgroundColor: "#f3f4f6", paddingBottom: 40 },
+  title: {
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 20,
+    color: "#1e3a5f",
+  },
+  field: { marginBottom: 14 },
+  label: { marginBottom: 4, fontWeight: "500", color: "#374151" },
+  required: { color: "#ef4444" },
+  input: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    padding: 10,
+    backgroundColor: "#fff",
+  },
+  inputDisabled: { backgroundColor: "#f3f4f6", borderColor: "#e5e7eb" },
+  dateText: { color: "#111827" },
+  placeholder: { color: "#9ca3af" },
+  loadingBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 8,
+  },
+  loadingText: { color: "#6b7280", fontSize: 13 },
+  button: {
+    backgroundColor: "#2563eb",
+    padding: 14,
+    marginTop: 20,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  buttonDisabled: { backgroundColor: "#93c5fd" },
+  buttonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalBox: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 10,
+    maxHeight: 350,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    padding: 10,
+    color: "#1e3a5f",
+    textAlign: "center",
+  },
+  option: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 8,
+  },
+  optionSelected: { backgroundColor: "#dbeafe" },
+  optionText: { color: "#111827" },
+  optionTextSelected: { color: "#2563eb", fontWeight: "600" },
+  emptyText: { textAlign: "center", padding: 20, color: "#9ca3af" },
 });
