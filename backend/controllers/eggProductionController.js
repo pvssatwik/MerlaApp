@@ -1,20 +1,40 @@
 const connection = require('../db/snowflake');
 
-// ── SP 1: Daily Egg Production ─────────────────────────
 const insertEggProduction = (req, res) => {
+  console.log('Received body:', req.body); // ← debug log
+
   const {
-    farm_name, shed_name, flock_name, production_date,
-    transaction_type, egg_type, egg_count, trip_no,
-    commnets, who_created
+    farm_name,
+    shed_no,
+    flock_no,
+    production_date,
+    transaction_type,
+    egg_type,
+    egg_count,
+    trip_no,
+    comments,   // ← frontend sends "comments"
+    who_created
   } = req.body;
+
+  // Replace undefined with empty string or default
+  const binds = [
+    farm_name        || 'MERLA',
+    shed_no          || '',
+    flock_no         || '',
+    production_date  || '',
+    transaction_type || '',
+    egg_type         || '',
+    Number(egg_count) || 0,
+    trip_no          || '',
+    comments         || '',   // ← map "comments" to SP's "commnets"
+    who_created      || 'APP_USER'
+  ];
+
+  console.log('Binds:', binds); // ← debug log
 
   connection.execute({
     sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_EGG_PRODUCTION_SUMMARY(?,?,?,?,?,?,?,?,?,?)`,
-    binds: [
-      farm_name, shed_name, flock_name, production_date,
-      transaction_type, egg_type, egg_count, trip_no,
-      commnets , who_created || 'APP_USER'
-    ],
+    binds: binds,
     complete: (err, stmt, rows) => {
       if (err) {
         console.error('SP Error:', err.message);
@@ -26,65 +46,14 @@ const insertEggProduction = (req, res) => {
   });
 };
 
-// ── SP 2: Bird Live Stock ──────────────────────────────
-const insertBirdLiveStock = (req, res) => {
-  const {
-    farm_name, shed_name, flock_name, reporting_date,
-    loss_of_bird, loss_type, balance_count,
-    comments, who_created
-  } = req.body;
-
-  connection.execute({
-    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_BIRD_LIVE_STOCK(?,?,?,?,?,?,?,?,?)`,
-    binds: [
-      farm_name, shed_name, flock_name, reporting_date,
-      loss_of_bird, loss_type, balance_count,
-      comments, who_created || 'APP_USER'
-    ],
-    complete: (err, stmt, rows) => {
-      if (err) {
-        console.error('SP Error:', err.message);
-        return res.status(500).json({ success: false, error: err.message });
-      }
-      const spResult = rows[0]['SP_INS_DAILY_BIRD_LIVE_STOCK'];
-      res.json({ success: true, message: spResult });
-    }
-  });
-};
-
-// ── SP 3: Feed Consumption ─────────────────────────────
-const insertFeedConsumption = (req, res) => {
-  const {
-    farm_name, shed_name, flock_name, reporting_date,
-    feed_type, feed_used, feed_balance,
-    comments, who_created
-  } = req.body;
-
-  connection.execute({
-    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_FEED_CONSUMPTION(?,?,?,?,?,?,?,?,?)`,
-    binds: [
-      farm_name, shed_name, flock_name, reporting_date,
-      feed_type, feed_used, feed_balance,
-      comments, who_created || 'APP_USER'
-    ],
-    complete: (err, stmt, rows) => {
-      if (err) {
-        console.error('SP Error:', err.message);
-        return res.status(500).json({ success: false, error: err.message });
-      }
-      const spResult = rows[0]['SP_INS_DAILY_FEED_CONSUMPTION'];
-      res.json({ success: true, message: spResult });
-    }
-  });
-};
 const fetchEggProductions = (req, res) => {
   connection.execute({
     sqlText: `
       SELECT
-        SHED_NO, FARM_NAME, FLOCK_NO, SHED_NAME,
-        PRODUCTION_DATE, FLOCK_NAME, TRANSACTION_TYPE,
-        EGG_TYPE, EGG_COUNT, TRIP_NO, COMMENTS,
-        WHO_CREATED, WHEN_CREATED
+        FARM_NAME, SHED_NO, FLOCK_NO,
+        PRODUCTION_DATE, TRANSACTION_TYPE,
+        EGG_TYPE, EGG_COUNT, TRIP_NO,
+        COMMNETS, WHO_CREATED, WHEN_CREATED
       FROM MERLAFARMS.TRANSACTION.DAILY_EGG_PRODUCTION_SUMMARY
       ORDER BY WHEN_CREATED DESC
       LIMIT 100
@@ -96,9 +65,4 @@ const fetchEggProductions = (req, res) => {
   });
 };
 
-module.exports = {
-  insertEggProduction,
-  insertBirdLiveStock,
-  insertFeedConsumption,
-  fetchEggProductions
-};
+module.exports = { insertEggProduction, fetchEggProductions };

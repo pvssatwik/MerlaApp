@@ -30,6 +30,7 @@ const HomeScreen = ({ navigation }: any) => {
               navigation.navigate('DynamicForm', {
                 title: item.title,
                 fields: item.fields,
+                api:    item.api,
               })
             }
           >
