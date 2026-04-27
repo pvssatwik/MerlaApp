@@ -1,17 +1,28 @@
 export const FORMS = [
+  // ─── 1. Egg Production ────────────────────────────────
   {
     title: "Egg Production",
     api: "eggproduction",
     fields: [
-      { name: "shed_no", label: "Shed No", type: "number", required: true },
-
       {
-        name: "flock_no",
-        label: "Flock No",
-        type: "text", // later can be dropdown
+        name: "shed_no",
+        label: "Shed",
+        type: "dropdown_api",
+        apiSource: "sheds",
+        labelKey: "SHED_NAME",
+        valueKey: "SHED_NAME",
         required: true,
       },
-
+      {
+        name: "flock_no",
+        label: "Flock",
+        type: "dropdown_api",
+        apiSource: "flocksByShed",
+        labelKey: "FLOCK_NAME",
+        valueKey: "FLOCK_NAME",
+        dependsOn: "shed_no",
+        required: true,
+      },
       {
         name: "production_date",
         label: "Production Date",
@@ -21,111 +32,56 @@ export const FORMS = [
       {
         name: "transaction_type",
         label: "Transaction Type",
-        type: "dropdown",
-        options: ["PRODUCTION", "ADJUSTMENT", "DAMAGE"],
+        type: "dropdown_api",
+        apiSource: "eggTransactions",
+        labelKey: "TRANSACTION_TYPE",
+        valueKey: "TRANSACTION_TYPE",
         required: true,
       },
       {
         name: "egg_type",
         label: "Egg Type",
-        type: "dropdown",
-        options: ["NORMAL", "BROKEN", "JUMBO", "SMALL"],
+        type: "dropdown_api",
+        apiSource: "eggTypes",
+        labelKey: "EGG_TYPE",
+        valueKey: "EGG_TYPE",
         required: true,
       },
-
       { name: "egg_count", label: "Egg Count", type: "number", required: true },
-
       {
         name: "trip_no",
         label: "Trip No",
-        type: "text",
+        type: "dropdown_api",
+        apiSource: "trips",
+        labelKey: "TRIP_NAME",
+        valueKey: "TRIP_NAME",
       },
-
       { name: "comments", label: "Comments", type: "text" },
     ],
   },
-  {
-    title: "Flock Master",
-    api: "flockMaster",
-    fields: [
-      {
-        name: "flock_no",
-        label: "Flock No",
-        type: "number",
-        required: true,
-      },
-      {
-        name: "flock_name",
-        label: "Flock Name",
-        type: "text",
-        required: true,
-      },
-      {
-        name: "chick_shed_no",
-        label: "Chick Shed No",
-        type: "number",
-        required: true,
-      },
-      {
-        name: "volume",
-        label: "Volume",
-        type: "number",
-      },
-      {
-        name: "incepted_date",
-        label: "Incepted Date",
-        type: "date",
-        required: true,
-      },
-      {
-        name: "initial_count",
-        label: "Initial Count",
-        type: "number",
-        required: true,
-      },
-      {
-        name: "current_status",
-        label: "Current Status",
-        type: "dropdown",
-        options: ["ACTIVE", "INACTIVE", "TRANSFERRED"],
-        required: true,
-      },
-      {
-        name: "layer_shed_no",
-        label: "Layer Shed No",
-        type: "number",
-      },
-      {
-        name: "transfer_date",
-        label: "Transfer Date",
-        type: "date",
-      },
-      {
-        name: "transfer_volume",
-        label: "Transfer Volume",
-        type: "number",
-      },
-      {
-        name: "comments",
-        label: "Comments",
-        type: "text",
-      },
-    ],
-  },
+
+  // ─── 2. Bird Live Stock ───────────────────────────────
   {
     title: "Bird Live Stock",
     api: "birdLiveStock",
     fields: [
       {
         name: "shed_no",
-        label: "Shed No",
-        type: "number",
+        label: "Shed",
+        type: "dropdown_api",
+        apiSource: "sheds",
+        labelKey: "SHED_NAME",
+        valueKey: "SHED_NAME",
         required: true,
       },
       {
         name: "flock_no",
-        label: "Flock No",
-        type: "text",
+        label: "Flock",
+        type: "dropdown_api",
+        apiSource: "flocksByShed",
+        labelKey: "FLOCK_NAME",
+        valueKey: "FLOCK_NAME",
+        dependsOn: "shed_no",
         required: true,
       },
       {
@@ -143,8 +99,10 @@ export const FORMS = [
       {
         name: "loss_type",
         label: "Loss Type",
-        type: "dropdown",
-        options: ["DISEASE", "ACCIDENT", "NATURAL", "OTHER"],
+        type: "dropdown_api",
+        apiSource: "birdLossTypes",
+        labelKey: "LOSS_TYPE",
+        valueKey: "LOSS_TYPE",
         required: true,
       },
       {
@@ -153,86 +111,298 @@ export const FORMS = [
         type: "number",
         required: true,
       },
-      {
-        name: "comments",
-        label: "Comments",
-        type: "text",
-      },
-      {
-        title: "Feed Shed Stock",
-        api: "feedShedStock",
-        fields: [
-          { name: "shed_no", label: "Shed No", type: "number", required: true },
-          { name: "flock_no", label: "Flock No", type: "text", required: true },
-
-          {
-            name: "reporting_date",
-            label: "Reporting Date",
-            type: "date",
-            required: true,
-          },
-
-          {
-            name: "feed_type",
-            label: "Feed Type",
-            type: "dropdown",
-            options: ["STARTER", "GROWER", "FINISHER"],
-            required: true,
-          },
-
-          { name: "volume", label: "Volume", type: "number", required: true },
-
-          {
-            name: "feed_balance",
-            label: "Feed Balance",
-            type: "number",
-            required: true,
-          },
-
-          { name: "comments", label: "Comments", type: "text" },
-        ],
-      },
+      { name: "comments", label: "Comments", type: "text" },
     ],
   },
+
+  // ─── 3. Egg Godown Stock ──────────────────────────────
+  {
+    title: "Egg Godown Stock",
+    api: "eggGodownStock",
+    fields: [
+      {
+        name: "shed_no",
+        label: "Shed",
+        type: "dropdown_api",
+        apiSource: "sheds",
+        labelKey: "SHED_NAME",
+        valueKey: "SHED_NAME",
+        required: true,
+      },
+      {
+        name: "flock_no",
+        label: "Flock",
+        type: "dropdown_api",
+        apiSource: "flocksByShed",
+        labelKey: "FLOCK_NAME",
+        valueKey: "FLOCK_NAME",
+        dependsOn: "shed_no",
+        required: true,
+      },
+      {
+        name: "production_date",
+        label: "Production Date",
+        type: "date",
+        required: true,
+      },
+      {
+        name: "egg_type",
+        label: "Egg Type",
+        type: "dropdown_api",
+        apiSource: "eggTypes",
+        labelKey: "EGG_TYPE",
+        valueKey: "EGG_TYPE",
+        required: true,
+      },
+      { name: "egg_count", label: "Egg Count", type: "number", required: true },
+      {
+        name: "trip_no",
+        label: "Trip No",
+        type: "dropdown_api",
+        apiSource: "trips",
+        labelKey: "TRIP_NAME",
+        valueKey: "TRIP_NAME",
+      },
+      {
+        name: "total_egg_stock",
+        label: "Total Egg Stock",
+        type: "number",
+        required: true,
+      },
+      { name: "comments", label: "Comments", type: "text" },
+    ],
+  },
+
+  // ─── 4. Egg Sale Summary ──────────────────────────────
+  {
+    title: "Egg Sale Summary",
+    api: "eggSaleSummary",
+    fields: [
+      {
+        name: "sale_date",
+        label: "Sale Date",
+        type: "date",
+        required: true,
+      },
+      {
+        name: "transaction_type",
+        label: "Transaction Type",
+        type: "dropdown_api",
+        apiSource: "eggTransactions",
+        labelKey: "TRANSACTION_TYPE",
+        valueKey: "TRANSACTION_TYPE",
+        required: true,
+      },
+      {
+        name: "egg_type",
+        label: "Egg Type",
+        type: "dropdown_api",
+        apiSource: "eggTypes",
+        labelKey: "EGG_TYPE",
+        valueKey: "EGG_TYPE",
+        required: true,
+      },
+      {
+        name: "eggs_volume",
+        label: "Eggs Volume",
+        type: "number",
+        required: true,
+      },
+      { name: "gate_pass_no", label: "Gate Pass No", type: "text" },
+      {
+        name: "customer_name",
+        label: "Customer Name",
+        type: "text",
+        required: true,
+      },
+      {
+        name: "customer_mobile_no",
+        label: "Customer Mobile No",
+        type: "number",
+      },
+      {
+        name: "transport_mode",
+        label: "Transport Mode",
+        type: "dropdown",
+        options: ["LORRY", "AUTO", "MANUAL", "OTHER"],
+      },
+      {
+        name: "vehicle_type",
+        label: "Vehicle Type",
+        type: "dropdown",
+        options: ["SMALL", "MEDIUM", "LARGE"],
+      },
+      { name: "vehicle_no", label: "Vehicle No", type: "text" },
+      { name: "balance_count", label: "Balance Count", type: "number" },
+      { name: "comments", label: "Comments", type: "text" },
+    ],
+  },
+
+  // ─── 5. Feed Consumption ──────────────────────────────
   {
     title: "Feed Consumption",
     api: "feedConsumption",
     fields: [
-      { name: "shed_no", label: "Shed No", type: "number", required: true },
-      { name: "flock_no", label: "Flock No", type: "text", required: true },
-
+      {
+        name: "shed_no",
+        label: "Shed",
+        type: "dropdown_api",
+        apiSource: "sheds",
+        labelKey: "SHED_NAME",
+        valueKey: "SHED_NAME",
+        required: true,
+      },
+      {
+        name: "flock_no",
+        label: "Flock",
+        type: "dropdown_api",
+        apiSource: "flocksByShed",
+        labelKey: "FLOCK_NAME",
+        valueKey: "FLOCK_NAME",
+        dependsOn: "shed_no",
+        required: true,
+      },
       {
         name: "reporting_date",
         label: "Reporting Date",
         type: "date",
         required: true,
       },
-
       {
         name: "feed_type",
         label: "Feed Type",
-        type: "dropdown",
-        options: ["STARTER", "GROWER", "FINISHER"],
+        type: "dropdown_api",
+        apiSource: "feeds",
+        labelKey: "FEED_TYPE",
+        valueKey: "FEED_TYPE",
         required: true,
       },
-
-      {
-        name: "feed_used",
-        label: "Feed Used",
-        type: "number",
-        required: true,
-      },
-
+      { name: "feed_used", label: "Feed Used", type: "number", required: true },
       {
         name: "feed_balance",
         label: "Feed Balance",
         type: "number",
         required: true,
       },
-
       { name: "comments", label: "Comments", type: "text" },
     ],
   },
+
+  // ─── 6. Feed Production ───────────────────────────────
+  {
+    title: "Feed Production",
+    api: "feedProduction",
+    fields: [
+      {
+        name: "production_date",
+        label: "Production Date",
+        type: "date",
+        required: true,
+      },
+      {
+        name: "feed_type",
+        label: "Feed Type",
+        type: "dropdown_api",
+        apiSource: "feeds",
+        labelKey: "FEED_TYPE",
+        valueKey: "FEED_TYPE",
+        required: true,
+      },
+      { name: "volume", label: "Volume", type: "number", required: true },
+      { name: "category", label: "Category", type: "text" },
+      { name: "comments", label: "Comments", type: "text" },
+    ],
+  },
+
+  // ─── 7. Feed Shed Stock ───────────────────────────────
+  {
+    title: "Feed Shed Stock",
+    api: "feedShedStock",
+    fields: [
+      {
+        name: "shed_no",
+        label: "Shed",
+        type: "dropdown_api",
+        apiSource: "sheds",
+        labelKey: "SHED_NAME",
+        valueKey: "SHED_NAME",
+        required: true,
+      },
+      {
+        name: "flock_no",
+        label: "Flock",
+        type: "dropdown_api",
+        apiSource: "flocksByShed",
+        labelKey: "FLOCK_NAME",
+        valueKey: "FLOCK_NAME",
+        dependsOn: "shed_no",
+        required: true,
+      },
+      {
+        name: "reporting_date",
+        label: "Reporting Date",
+        type: "date",
+        required: true,
+      },
+      {
+        name: "feed_type",
+        label: "Feed Type",
+        type: "dropdown_api",
+        apiSource: "feeds",
+        labelKey: "FEED_TYPE",
+        valueKey: "FEED_TYPE",
+        required: true,
+      },
+      { name: "volume", label: "Volume", type: "number", required: true },
+      { name: "balance", label: "Balance", type: "number", required: true },
+      { name: "comments", label: "Comments", type: "text" },
+    ],
+  },
+
+  // ─── 8. Feed Supply ───────────────────────────────────
+  {
+    title: "Feed Supply",
+    api: "feedSupply",
+    fields: [
+      {
+        name: "shed_no",
+        label: "Shed",
+        type: "dropdown_api",
+        apiSource: "sheds",
+        labelKey: "SHED_NAME",
+        valueKey: "SHED_NAME",
+        required: true,
+      },
+      {
+        name: "flock_no",
+        label: "Flock",
+        type: "dropdown_api",
+        apiSource: "flocksByShed",
+        labelKey: "FLOCK_NAME",
+        valueKey: "FLOCK_NAME",
+        dependsOn: "shed_no",
+        required: true,
+      },
+      {
+        name: "supply_date",
+        label: "Supply Date",
+        type: "date",
+        required: true,
+      },
+      {
+        name: "feed_type",
+        label: "Feed Type",
+        type: "dropdown_api",
+        apiSource: "feeds",
+        labelKey: "FEED_TYPE",
+        valueKey: "FEED_TYPE",
+        required: true,
+      },
+      { name: "comments", label: "Comments", type: "text" },
+    ],
+  },
+
+  // ─── 9. Raw Material Stock ────────────────────────────
   {
     title: "Raw Material Stock",
     api: "rawMaterialStock",
@@ -250,12 +420,7 @@ export const FORMS = [
         options: ["MAIZE", "SOYA", "VITAMINS", "OTHER"],
         required: true,
       },
-      {
-        name: "volume",
-        label: "Volume",
-        type: "number",
-        required: true,
-      },
+      { name: "volume", label: "Volume", type: "number", required: true },
       {
         name: "transaction_type",
         label: "Transaction Type",
@@ -263,191 +428,6 @@ export const FORMS = [
         options: ["IN", "OUT", "ADJUSTMENT"],
         required: true,
       },
-      {
-        name: "comments",
-        label: "Comments",
-        type: "text",
-      },
-    ],
-  },
-  {
-    title: "Feed Production",
-    api: "feedProduction",
-    fields: [
-      {
-        name: "production_date",
-        label: "Production Date",
-        type: "date",
-        required: true,
-      },
-      {
-        name: "feed_type",
-        label: "Feed Type",
-        type: "dropdown",
-        options: ["STARTER", "GROWER", "FINISHER"],
-        required: true,
-      },
-      {
-        name: "volume",
-        label: "Volume",
-        type: "number",
-        required: true,
-      },
-      {
-        name: "comments",
-        label: "Comments",
-        type: "text",
-      },
-    ],
-  },
-  {
-    title: "Feed Supply",
-    api: "feedSupply",
-    fields: [
-      {
-        name: "shed_no",
-        label: "Shed No",
-        type: "number",
-        required: true,
-      },
-      {
-        name: "flock_no",
-        label: "Flock No",
-        type: "text",
-        required: true,
-      },
-      {
-        name: "supply_date",
-        label: "Supply Date",
-        type: "date",
-        required: true,
-      },
-      {
-        name: "feed_type",
-        label: "Feed Type",
-        type: "dropdown",
-        options: ["STARTER", "GROWER", "FINISHER"],
-        required: true,
-      },
-      {
-        name: "comments",
-        label: "Comments",
-        type: "text",
-      },
-    ],
-  },
-  {
-    title: "Egg Godown Stock",
-    api: "eggGodownStock",
-    fields: [
-      { name: "shed_no", label: "Shed No", type: "number", required: true },
-      { name: "flock_no", label: "Flock No", type: "text", required: true },
-
-      {
-        name: "production_date",
-        label: "Production Date",
-        type: "date",
-        required: true,
-      },
-
-      {
-        name: "egg_type",
-        label: "Egg Type",
-        type: "dropdown",
-        options: ["NORMAL", "BROKEN", "JUMBO", "SMALL"],
-        required: true,
-      },
-
-      {
-        name: "egg_count",
-        label: "Egg Count",
-        type: "number",
-        required: true,
-      },
-
-      { name: "trip_no", label: "Trip No", type: "text" },
-
-      {
-        name: "total_egg_stock",
-        label: "Total Egg Stock",
-        type: "number",
-        required: true,
-      },
-
-      { name: "comments", label: "Comments", type: "text" },
-    ],
-  },
-  {
-    title: "Egg Sale Summary",
-    api: "eggSaleSummary",
-    fields: [
-      {
-        name: "sale_date",
-        label: "Sale Date",
-        type: "date",
-        required: true,
-      },
-
-      {
-        name: "transaction_type",
-        label: "Transaction Type",
-        type: "dropdown",
-        options: ["SALE", "RETURN", "ADJUSTMENT"],
-        required: true,
-      },
-
-      {
-        name: "egg_type",
-        label: "Egg Type",
-        type: "dropdown",
-        options: ["NORMAL", "BROKEN", "JUMBO", "SMALL"],
-        required: true,
-      },
-
-      {
-        name: "eggs_volume",
-        label: "Eggs Volume",
-        type: "number",
-        required: true,
-      },
-
-      { name: "gate_pass_no", label: "Gate Pass No", type: "text" },
-
-      {
-        name: "customer_name",
-        label: "Customer Name",
-        type: "text",
-        required: true,
-      },
-
-      {
-        name: "customer_mobile_no",
-        label: "Customer Mobile No",
-        type: "text",
-      },
-
-      {
-        name: "transport_mode",
-        label: "Transport Mode",
-        type: "dropdown",
-        options: ["TRUCK", "AUTO", "MANUAL"],
-      },
-
-      {
-        name: "vehicle_type",
-        label: "Vehicle Type",
-        type: "dropdown",
-        options: ["SMALL", "MEDIUM", "LARGE"],
-      },
-
-      { name: "vehicle_no", label: "Vehicle No", type: "text" },
-
-      {
-        name: "balance_count",
-        label: "Balance Count",
-        type: "number",
-      },
-
       { name: "comments", label: "Comments", type: "text" },
     ],
   },
