@@ -1,9 +1,23 @@
 import { API_BASE_URL, API_HEADERS } from '../config/api';
 
 const get = async (url: string) => {
-  const res = await fetch(`${API_BASE_URL}${url}`, { headers: API_HEADERS });
-  const result = await res.json();
-  return result.data || [];
+  try {
+    const furl = `${API_BASE_URL}${url}`;
+    console.log('URL:', furl);
+
+    const res = await fetch(furl, { headers: API_HEADERS });
+    
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const result = await res.json();
+    console.log('Response:', result);
+    return result.data || [];
+  } catch (error) {
+    console.error("Error fetching dropdown data:", error);
+    return [];
+  }
 };
 
 export const fetchSheds            = () => get('/api/transactions/dropdowns/sheds');

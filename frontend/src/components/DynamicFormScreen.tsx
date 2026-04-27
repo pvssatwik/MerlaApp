@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  KeyboardAvoidingView,
+  Keyboard,
 } from "react-native";
 import {
   fetchSheds,
@@ -64,6 +66,7 @@ const fetchDropdownData = async (
   }
 };
 
+// ─── Main Screen ──────────────────────────────────────────
 const DynamicFormScreen = ({ route }: any) => {
   const { title, fields, api } = route.params;
 
@@ -80,11 +83,12 @@ const DynamicFormScreen = ({ route }: any) => {
   );
   const [loadingDropdowns, setLoadingDropdowns] = useState(false);
 
-  // ─── Load all non-cascading API dropdowns on mount ────
+  // ─── Load non-cascading dropdowns on mount ────────────
   useEffect(() => {
     const loadDropdowns = async () => {
       setLoadingDropdowns(true);
       try {
+        console.log('API_BASE_URL:', API_BASE_URL);
         const results: Record<string, any[]> = {};
         for (const field of fields) {
           if (field.type === "dropdown_api" && !field.dependsOn) {
@@ -101,28 +105,26 @@ const DynamicFormScreen = ({ route }: any) => {
     loadDropdowns();
   }, []);
 
-  // ─── Set value + handle cascading ────────────────────
+  // ─── Set value ────────────────────────────────────────
+  const setValue = (key: string, value: any) =>
+    setForm((prev: any) => ({ ...prev, [key]: value }));
+
+  // ─── Handle cascading dropdowns ───────────────────────
   const handleValueChange = async (fieldName: string, value: any) => {
     setForm((prev: any) => ({ ...prev, [fieldName]: value }));
 
-    // Find fields that depend on this field
     const dependentFields = fields.filter(
       (f: any) => f.dependsOn === fieldName,
     );
 
     for (const depField of dependentFields) {
-      // Reset dependent field value
       setForm((prev: any) => ({ ...prev, [depField.name]: "" }));
-
-      // Fetch new options based on selected value
       const data = await fetchDropdownData(depField.apiSource, value);
       setDropdownOptions((prev) => ({ ...prev, [depField.name]: data }));
     }
   };
 
-  const setValue = (key: string, value: any) =>
-    setForm((prev: any) => ({ ...prev, [key]: value }));
-
+  // ─── Format date ──────────────────────────────────────
   const formatDate = (date: Date) => date.toISOString().split("T")[0];
 
   // ─── Validation ───────────────────────────────────────
@@ -136,8 +138,16 @@ const DynamicFormScreen = ({ route }: any) => {
     return true;
   };
 
+  // ─── Open dropdown modal ──────────────────────────────
+  const openDropdown = (field: any) => {
+    Keyboard.dismiss();
+    const options = dropdownOptions[field.name] || [];
+    setDropdown({ visible: true, field, apiOptions: options });
+  };
+
   // ─── Submit ───────────────────────────────────────────
   const handleSubmit = async () => {
+    Keyboard.dismiss();
     if (!validate()) return;
     setLoading(true);
 
@@ -189,66 +199,147 @@ const DynamicFormScreen = ({ route }: any) => {
     }
   };
 
-  // ─── Open dropdown modal ──────────────────────────────
-  const openDropdown = (field: any) => {
-    const options = dropdownOptions[field.name] || [];
-    setDropdown({ visible: true, field, apiOptions: options });
-  };
-
   // ─── Render ───────────────────────────────────────────
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>{title}</Text>
+    <KeyboardAvoidingView
+      style={styles.keyboardView}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.title}>{title}</Text>
 
-      {/* Loading indicator for dropdowns */}
-      {loadingDropdowns && (
-        <View style={styles.loadingBar}>
-          <ActivityIndicator size="small" color="#2563eb" />
-          <Text style={styles.loadingText}>Loading options...</Text>
-        </View>
-      )}
+        {/* Loading bar */}
+        {loadingDropdowns && (
+          <View style={styles.loadingBar}>
+            <ActivityIndicator size="small" color="#2563eb" />
+            <Text style={styles.loadingText}>Loading options...</Text>
+          </View>
+        )}
 
-      {fields.map((field: any) => {
-        // Hide transfer fields unless TRANSFERRED
-        if (
-          (field.name === "transfer_date" ||
-            field.name === "transfer_volume") &&
-          form.current_status !== "TRANSFERRED"
-        )
-          return null;
+        {fields.map((field: any) => {
+          // Hide transfer fields unless TRANSFERRED
+          if (
+            (field.name === "transfer_date" ||
+              field.name === "transfer_volume") &&
+            form.current_status !== "TRANSFERRED"
+          )
+            return null;
 
-        return (
-          <View key={field.name} style={styles.field}>
-            <Text style={styles.label}>
-              {field.label}
-              {field.required && <Text style={styles.required}> *</Text>}
-            </Text>
+          return (
+            <View key={field.name} style={styles.field}>
+              <Text style={styles.label}>
+                {field.label}
+                {field.required && <Text style={styles.required}> *</Text>}
+              </Text>
 
-            {/* TEXT / NUMBER */}
-            {(field.type === "text" || field.type === "number") && (
-              <TextInput
-                style={styles.input}
-                keyboardType={field.type === "number" ? "numeric" : "default"}
-                placeholder={`Enter ${field.label}`}
-                value={form[field.name] || ""}
-                onChangeText={(val) => {
-                  if (field.type === "number") val = val.replace(/[^0-9]/g, "");
-                  setValue(field.name, val);
-                }}
-              />
-            )}
+              {/* TEXT / NUMBER */}
+              {(field.type === "text" || field.type === "number") && (
+                <TextInput
+                  style={styles.input}
+                  keyboardType={field.type === "number" ? "numeric" : "default"}
+                  placeholder={`Enter ${field.label}`}
+                  value={form[field.name] || ""}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onChangeText={(val) => {
+                    if (field.type === "number")
+                      val = val.replace(/[^0-9]/g, "");
+                    setValue(field.name, val);
+                  }}
+                />
+              )}
 
-            {/* DATE */}
-            {field.type === "date" && (
-              <>
+              {/* DATE */}
+              {field.type === "date" && (
+                <>
+                  <TouchableOpacity
+                    style={styles.input}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setShowDate((prev: any) => ({
+                        ...prev,
+                        [field.name]: true,
+                      }));
+                    }}
+                  >
+                    <Text
+                      style={
+                        form[field.name] ? styles.dateText : styles.placeholder
+                      }
+                    >
+                      {form[field.name]
+                        ? formatDate(form[field.name])
+                        : "📅 Select Date"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {showDate[field.name] && (
+                    <DateTimePicker
+                      value={form[field.name] || new Date()}
+                      mode="date"
+                      maximumDate={new Date()}
+                      display={Platform.OS === "ios" ? "spinner" : "default"}
+                      onChange={(e, date) => {
+                        setShowDate((prev: any) => ({
+                          ...prev,
+                          [field.name]: false,
+                        }));
+                        if (date) setValue(field.name, date);
+                      }}
+                    />
+                  )}
+                </>
+              )}
+
+              {/* STATIC DROPDOWN */}
+              {field.type === "dropdown" && (
                 <TouchableOpacity
                   style={styles.input}
-                  onPress={() =>
-                    setShowDate((prev: any) => ({
-                      ...prev,
-                      [field.name]: true,
-                    }))
-                  }
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setDropdown({
+                      visible: true,
+                      field,
+                      apiOptions: field.options || [],
+                    });
+                  }}
+                >
+                  <Text
+                    style={
+                      form[field.name] ? styles.dateText : styles.placeholder
+                    }
+                  >
+                    {form[field.name] || "Select option ▼"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* API DROPDOWN */}
+              {field.type === "dropdown_api" && (
+                <TouchableOpacity
+                  style={[
+                    styles.input,
+                    field.dependsOn &&
+                      !form[field.dependsOn] &&
+                      styles.inputDisabled,
+                  ]}
+                  onPress={() => {
+                    if (field.dependsOn && !form[field.dependsOn]) {
+                      Alert.alert(
+                        "⚠️",
+                        `Please select ${field.dependsOn
+                          .replace("_no", "")
+                          .replace("_", " ")} first`,
+                      );
+                      return;
+                    }
+                    openDropdown(field);
+                  }}
                 >
                   <Text
                     style={
@@ -256,102 +347,37 @@ const DynamicFormScreen = ({ route }: any) => {
                     }
                   >
                     {form[field.name]
-                      ? formatDate(form[field.name])
-                      : "📅 Select Date"}
+                      ? form[field.name]
+                      : loadingDropdowns
+                        ? "Loading..."
+                        : field.dependsOn && !form[field.dependsOn]
+                          ? `Select ${field.dependsOn
+                              .replace("_no", "")
+                              .replace("_", " ")} first`
+                          : "Select option ▼"}
                   </Text>
                 </TouchableOpacity>
+              )}
+            </View>
+          );
+        })}
 
-                {showDate[field.name] && (
-                  <DateTimePicker
-                    value={form[field.name] || new Date()}
-                    mode="date"
-                    maximumDate={new Date()}
-                    display={Platform.OS === "ios" ? "spinner" : "default"}
-                    onChange={(e, date) => {
-                      setShowDate((prev: any) => ({
-                        ...prev,
-                        [field.name]: false,
-                      }));
-                      if (date) setValue(field.name, date);
-                    }}
-                  />
-                )}
-              </>
-            )}
+        {/* SUBMIT BUTTON */}
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Submit</Text>
+          )}
+        </TouchableOpacity>
 
-            {/* STATIC DROPDOWN */}
-            {field.type === "dropdown" && (
-              <TouchableOpacity
-                style={styles.input}
-                onPress={() =>
-                  setDropdown({
-                    visible: true,
-                    field,
-                    apiOptions: field.options || [],
-                  })
-                }
-              >
-                <Text
-                  style={
-                    form[field.name] ? styles.dateText : styles.placeholder
-                  }
-                >
-                  {form[field.name] || "Select option ▼"}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {/* API DROPDOWN */}
-            {field.type === "dropdown_api" && (
-              <TouchableOpacity
-                style={[
-                  styles.input,
-                  field.dependsOn &&
-                    !form[field.dependsOn] &&
-                    styles.inputDisabled,
-                ]}
-                onPress={() => {
-                  if (field.dependsOn && !form[field.dependsOn]) {
-                    Alert.alert(
-                      "⚠️",
-                      `Please select ${field.dependsOn.replace("_", " ")} first`,
-                    );
-                    return;
-                  }
-                  openDropdown(field);
-                }}
-              >
-                <Text
-                  style={
-                    form[field.name] ? styles.dateText : styles.placeholder
-                  }
-                >
-                  {form[field.name]
-                    ? form[field.name]
-                    : loadingDropdowns
-                      ? "Loading..."
-                      : field.dependsOn && !form[field.dependsOn]
-                        ? `Select ${field.dependsOn.replace("_no", "").replace("_", " ")} first`
-                        : "Select option ▼"}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        );
-      })}
-
-      {/* SUBMIT BUTTON */}
-      <TouchableOpacity
-        style={[styles.button, loading && styles.buttonDisabled]}
-        onPress={handleSubmit}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Submit</Text>
-        )}
-      </TouchableOpacity>
+        {/* Bottom padding */}
+        <View style={{ height: 100 }} />
+      </ScrollView>
 
       {/* DROPDOWN MODAL */}
       <Modal visible={dropdown.visible} transparent animationType="fade">
@@ -373,12 +399,10 @@ const DynamicFormScreen = ({ route }: any) => {
                 <Text style={styles.emptyText}>No options available</Text>
               }
               renderItem={({ item }) => {
-                // Handle both string options and object options
                 const label =
                   typeof item === "string"
                     ? item
                     : item[dropdown.field?.labelKey] || "";
-
                 const value =
                   typeof item === "string"
                     ? item
@@ -416,20 +440,29 @@ const DynamicFormScreen = ({ route }: any) => {
           </View>
         </TouchableOpacity>
       </Modal>
-    </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 export default DynamicFormScreen;
 
+// ─── Styles ───────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { padding: 16, backgroundColor: "#f3f4f6", paddingBottom: 40 },
+  keyboardView: { flex: 1, backgroundColor: "#f3f4f6" },
+  container: { padding: 16, paddingBottom: 40 },
   title: {
     fontSize: 22,
     fontWeight: "700",
     marginBottom: 20,
     color: "#1e3a5f",
   },
+  loadingBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 8,
+  },
+  loadingText: { color: "#6b7280", fontSize: 13 },
   field: { marginBottom: 14 },
   label: { marginBottom: 4, fontWeight: "500", color: "#374151" },
   required: { color: "#ef4444" },
@@ -439,17 +472,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     backgroundColor: "#fff",
+    minHeight: 44,
+    justifyContent: "center",
   },
   inputDisabled: { backgroundColor: "#f3f4f6", borderColor: "#e5e7eb" },
   dateText: { color: "#111827" },
   placeholder: { color: "#9ca3af" },
-  loadingBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    gap: 8,
-  },
-  loadingText: { color: "#6b7280", fontSize: 13 },
   button: {
     backgroundColor: "#2563eb",
     padding: 14,
