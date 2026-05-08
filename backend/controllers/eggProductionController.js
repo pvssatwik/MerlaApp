@@ -1,6 +1,5 @@
 const connection = require("../db/snowflake");
 
-// ── Helper functions ──────────────────────────────────
 const safe = (val, def = "") => (val !== undefined && val !== null ? val : def);
 const safeNum = (val) => {
   const n = Number(val);
@@ -53,7 +52,6 @@ const insertEggProduction = (req, res) => {
 };
 
 // ── 2. Bird Live Stock ────────────────────────────────
-// CALL SP('MERLA','LAYER-1','FLOCK15','2026-04-19',2,'COUNTER',0,'COMMENTS','WHO')
 const insertBirdLiveStock = (req, res) => {
   const {
     farm_name,
@@ -96,7 +94,6 @@ const insertBirdLiveStock = (req, res) => {
 };
 
 // ── 3. Egg Godown Stock ───────────────────────────────
-// CALL SP('MERLA','LAYER-1','FLOCK16','2026-04-19','MEDIUM',1500,'TRIP 1','54894','COMMENTS','WHO')
 const insertEggGodownStock = (req, res) => {
   const {
     farm_name,
@@ -138,7 +135,6 @@ const insertEggGodownStock = (req, res) => {
 };
 
 // ── 4. Egg Sale Summary ───────────────────────────────
-// CALL SP('MERLA','2026-04-19','SALE','MEDIUM',24896,'GATE','CUSTOMER',9966332255,'LORRY','EICHER','TN TN',NULL,'COMMENTS','WHO')
 const insertEggSaleSummary = (req, res) => {
   const {
     farm_name,
@@ -190,7 +186,6 @@ const insertEggSaleSummary = (req, res) => {
 };
 
 // ── 5. Feed Consumption ───────────────────────────────
-// CALL SP('MERLA','LAYER-1','FLOCK16','2026-04-19','GRW',1250,0,'COMMENTS','WHO')
 const insertFeedConsumption = (req, res) => {
   const {
     farm_name,
@@ -233,7 +228,6 @@ const insertFeedConsumption = (req, res) => {
 };
 
 // ── 6. Feed Production ────────────────────────────────
-// CALL SP('MERLA','2026-04-19','RAW MAT',100,'FEED','COMMENTS','WHO')
 const insertFeedProduction = (req, res) => {
   const {
     farm_name,
@@ -269,7 +263,6 @@ const insertFeedProduction = (req, res) => {
 };
 
 // ── 7. Feed Shed Stock ────────────────────────────────
-// CALL SP('MERLA','LAYER-1','FLOCK16','2026-04-19','GRW',1250,0,'COMMENTS','WHO')
 const insertFeedShedStock = (req, res) => {
   const {
     farm_name,
@@ -312,7 +305,6 @@ const insertFeedShedStock = (req, res) => {
 };
 
 // ── 8. Feed Supply ────────────────────────────────────
-// CALL SP('MERLA','LAYER-1','FLOCK16','2026-04-19','LMW','COMMENTS','WHO')
 const insertFeedSupply = (req, res) => {
   const {
     farm_name,
@@ -347,7 +339,7 @@ const insertFeedSupply = (req, res) => {
   });
 };
 
-// ── Fetch Egg Productions ─────────────────────────────
+// ── 9. Fetch Egg Productions list ─────────────────────
 const fetchEggProductions = (req, res) => {
   connection.execute({
     sqlText: `
@@ -366,6 +358,187 @@ const fetchEggProductions = (req, res) => {
   });
 };
 
+// ── 10. Fetch Egg Production Summary View ─────────────
+const fetchEggProductionSummary = (req, res) => {
+  const { filter, start_date, end_date } = req.query;
+
+  let dateCondition = "";
+
+  switch (filter) {
+    case "today":
+      dateCondition = `WHERE CAST(PRODUCTION_DATE AS DATE) = CURRENT_DATE`;
+      break;
+    case "week":
+      dateCondition = `WHERE CAST(PRODUCTION_DATE AS DATE) >= DATEADD(day, -7, CURRENT_DATE)`;
+      break;
+    case "month":
+      dateCondition = `WHERE CAST(PRODUCTION_DATE AS DATE) >= DATEADD(month, -1, CURRENT_DATE)`;
+      break;
+    case "year":
+      dateCondition = `WHERE CAST(PRODUCTION_DATE AS DATE) >= DATEADD(year, -1, CURRENT_DATE)`;
+      break;
+    case "custom":
+      if (!start_date || !end_date) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error: "start_date and end_date are required",
+          });
+      }
+      dateCondition = `WHERE CAST(PRODUCTION_DATE AS DATE) BETWEEN '${start_date}' AND '${end_date}'`;
+      break;
+    default:
+      dateCondition = `WHERE CAST(PRODUCTION_DATE AS DATE) = CURRENT_DATE`;
+  }
+
+  console.log("EggProductionSummary filter:", filter, dateCondition);
+
+  connection.execute({
+    sqlText: `
+      SELECT
+        PRODUCTION_DATE,
+        FLOCK_NAME,
+        SHED_NO,
+        AGE_WEEK,
+        AGE_DAY,
+        EGGS_PROD_COUNT,
+        EGG_PRODUCTION_CHANGE,
+        TARGET_PCT,
+        ACTUAL_PCT,
+        DIFF_PCT
+      FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_PRODUCTION_SUMMARY
+      ${dateCondition}
+      ORDER BY PRODUCTION_DATE DESC, SHED_NO ASC
+    `,
+    complete: (err, stmt, rows) => {
+      if (err) {
+        console.error("Summary view error:", err.message);
+        return res.status(500).json({ success: false, error: err.message });
+      }
+      res.json({ success: true, data: rows });
+    },
+  });
+};
+
+// ── 11. Egg Stock View ────────────────────────────────
+const fetchEggStockSummary = (req, res) => {
+  connection.execute({
+    sqlText: `
+      SELECT
+        OPENING_BAL,
+        PRODUCTION,
+        TOTAL,
+        SALES,
+        CLOSING_BALANCE,
+        MEDIUM_EGGS,
+        PULLETS
+      FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_STOCK
+    `,
+    complete: (err, stmt, rows) => {
+      if (err) return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true, data: rows });
+    },
+  });
+};
+
+// ── 12. Egg Sales View ────────────────────────────────
+const fetchEggSalesSummary = (req, res) => {
+  const { filter, start_date, end_date } = req.query;
+  // VW_DAILY_EGG_SALES has no date column so filter not applied
+  connection.execute({
+    sqlText: `
+      SELECT
+        FARM_NAME,
+        SHED_NO,
+        FLOCK_NO,
+        EGGS,
+        DAMAGED,
+        PULLETS,
+        MEDIUM_EGGS,
+        TOTAL,
+        DAMAGE_PCT
+      FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SALES
+      ORDER BY SHED_NO ASC
+    `,
+    complete: (err, stmt, rows) => {
+      if (err) return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true, data: rows });
+    },
+  });
+};
+
+// ── 13. Cull Birds View ───────────────────────────────
+const fetchCullBirdsSummary = (req, res) => {
+  const { filter, start_date, end_date } = req.query;
+
+  let dateCondition = '';
+  switch (filter) {
+    case 'today':
+      dateCondition = `WHERE REPORTING_DATE = CURRENT_DATE`;
+      break;
+    case 'week':
+      dateCondition = `WHERE REPORTING_DATE >= DATEADD(day, -7, CURRENT_DATE)`;
+      break;
+    case 'month':
+      dateCondition = `WHERE REPORTING_DATE >= DATEADD(month, -1, CURRENT_DATE)`;
+      break;
+    case 'year':
+      dateCondition = `WHERE REPORTING_DATE >= DATEADD(year, -1, CURRENT_DATE)`;
+      break;
+    case 'custom':
+      if (!start_date || !end_date) {
+        return res.status(400).json({ success: false, error: 'start_date and end_date required' });
+      }
+      dateCondition = `WHERE REPORTING_DATE BETWEEN '${start_date}' AND '${end_date}'`;
+      break;
+    default:
+      dateCondition = `WHERE REPORTING_DATE = CURRENT_DATE`;
+  }
+
+  connection.execute({
+    sqlText: `
+      SELECT
+        FARM_NAME,
+        SHED_NO,
+        FLOCK_NO,
+        REPORTING_DATE,
+        OPENING_BALANCE,
+        COUNTER,
+        TOTAL,
+        SALES,
+        DEATH,
+        TOTAL_SALES,
+        CLOSING_BALANCE
+      FROM MERLAFARMS.TRANSACTION.VW_CULL_BIRDS
+      ${dateCondition}
+      ORDER BY REPORTING_DATE DESC, SHED_NO ASC
+    `,
+    complete: (err, stmt, rows) => {
+      if (err) return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true, data: rows });
+    },
+  });
+};
+
+// ── 14. Godown Sylo Stock View ────────────────────────
+const fetchGodownSyloStock = (req, res) => {
+  connection.execute({
+    sqlText: `
+      SELECT
+        SYLO_NO,
+        FEED_TYPE,
+        FEED_BALANCE
+      FROM MERLAFARMS.TRANSACTION.VW_GODOWN_SYLO_STOCK
+      ORDER BY SYLO_NO ASC
+    `,
+    complete: (err, stmt, rows) => {
+      if (err) return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true, data: rows });
+    },
+  });
+};
+
 module.exports = {
   insertEggProduction,
   insertBirdLiveStock,
@@ -376,4 +549,9 @@ module.exports = {
   insertFeedShedStock,
   insertFeedSupply,
   fetchEggProductions,
+  fetchEggProductionSummary,
+  fetchEggStockSummary,
+  fetchEggSalesSummary,
+  fetchCullBirdsSummary,
+  fetchGodownSyloStock,
 };

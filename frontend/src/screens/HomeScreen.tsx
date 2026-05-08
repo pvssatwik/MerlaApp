@@ -1,43 +1,263 @@
-// src/screens/HomeScreen.tsx
-
-import React from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
   StatusBar,
-} from 'react-native';
+  Platform,
+} from "react-native";
+import { FORMS } from "../config/forms";
+import SidebarMenu from "../components/sideBarMenu";
 
-import { FORMS } from '../config/forms';
+// ── Greeting ──────────────────────────────────────────────
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "🌅 Good Morning";
+  if (hour < 17) return "☀️ Good Afternoon";
+  return "🌙 Good Evening";
+};
 
+// ── Form icon mapping ─────────────────────────────────────
+const getFormIcon = (api: string) => {
+  const icons: Record<string, string> = {
+    eggproduction: "🥚",
+    birdLiveStock: "🐔",
+    eggGodownStock: "📦",
+    eggSaleSummary: "💰",
+    feedConsumption: "🌾",
+    feedProduction: "⚙️",
+    feedShedStock: "🏪",
+    feedSupply: "🚚",
+    rawMaterialStock: "📊",
+  };
+  return icons[api] || "📝";
+};
+
+// ── Summary cards ─────────────────────────────────────────
+const SUMMARY_CARDS = [
+  {
+    id: "egg_production",
+    title: "Egg Production",
+    icon: "🥚",
+    value: "--",
+    unit: "eggs today",
+    color: "#fef3c7",
+    borderColor: "#f59e0b",
+    screen: "EggProductionDetail",
+  },
+  {
+    id: "bird_stock",
+    title: "Bird Stock",
+    icon: "🐔",
+    value: "--",
+    unit: "birds total",
+    color: "#dbeafe",
+    borderColor: "#3b82f6",
+    screen: "BirdStockDetail",
+  },
+  {
+    id: "feed_stock",
+    title: "Feed Stock",
+    icon: "🌾",
+    value: "--",
+    unit: "kg available",
+    color: "#dcfce7",
+    borderColor: "#22c55e",
+    screen: "FeedStockDetail",
+  },
+  {
+    id: "egg_sales",
+    title: "Egg Sales",
+    icon: "💰",
+    value: "--",
+    unit: "sold today",
+    color: "#f3e8ff",
+    borderColor: "#a855f7",
+    screen: "EggSalesDetail",
+  },
+  {
+    id: "godown_stock",
+    title: "Godown Stock",
+    icon: "📦",
+    value: "--",
+    unit: "eggs in stock",
+    color: "#fee2e2",
+    borderColor: "#ef4444",
+    screen: "EggStockDetail",
+  },
+  {
+    id: "feed_consumed",
+    title: "Feed Consumed",
+    icon: "⚙️",
+    value: "--",
+    unit: "kg today",
+    color: "#fff7ed",
+    borderColor: "#f97316",
+    screen: null,
+  },
+];
+
+// ── Quick actions ─────────────────────────────────────────
+const QUICK_ACTIONS = [
+  { label: "Egg Production", api: "eggproduction", icon: "🥚" },
+  { label: "Bird Stock", api: "birdLiveStock", icon: "🐔" },
+  { label: "Feed Consumption", api: "feedConsumption", icon: "🌾" },
+  { label: "Egg Sale", api: "eggSaleSummary", icon: "💰" },
+];
+
+// ── Main component ────────────────────────────────────────
 const HomeScreen = ({ navigation }: any) => {
+  const greeting = getGreeting();
+  const [sidebarVisible, setSidebarVisible] = useState(false);
+
+  const navigateToForm = (api: string) => {
+    const form = FORMS.find((f: any) => f.api === api);
+    if (form) {
+      navigation.navigate("DynamicForm", {
+        title: form.title,
+        fields: form.fields,
+        api: form.api,
+      });
+    }
+  };
+
+  const handleCardPress = (card: any) => {
+    if (card.screen) {
+      navigation.navigate(card.screen);
+    }
+  };
+
   return (
-    <View style={styles.wrapper}>
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.safe}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="#1e3a5f"
+        translucent={false}
+      />
 
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>🐔 Merla Farms</Text>
-        <Text style={styles.subtitle}>Select a module</Text>
-
-        {FORMS.map((item, index) => (
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* ── Header ── */}
+        <View style={styles.header}>
           <TouchableOpacity
-            key={index}
-            style={styles.card}
-            activeOpacity={0.8}
-            onPress={() =>
-              navigation.navigate('DynamicForm', {
-                title: item.title,
-                fields: item.fields,
-                api:    item.api,
-              })
-            }
+            style={styles.menuBtn}
+            onPress={() => setSidebarVisible(true)}
           >
-            <Text style={styles.cardText}>{item.title}</Text>
+            <View style={styles.hamburger} />
+            <View style={styles.hamburger} />
+            <View style={styles.hamburger} />
           </TouchableOpacity>
-        ))}
+
+          <View style={styles.greetingBox}>
+            <Text style={styles.greeting}>{greeting}, Admin!</Text>
+            <Text style={styles.greetingSubtitle}>
+              Here's what's happening today
+            </Text>
+          </View>
+
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>A</Text>
+          </View>
+        </View>
+
+        {/* ── Date strip ── */}
+        <View style={styles.dateStrip}>
+          <Text style={styles.dateText}>
+            📅{" "}
+            {new Date().toLocaleDateString("en-IN", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </Text>
+        </View>
+
+        {/* ── Summary Cards ── */}
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Today's Summary</Text>
+          <Text style={styles.sectionHint}>Tap for details</Text>
+        </View>
+
+        <View style={styles.cardsGrid}>
+          {SUMMARY_CARDS.map((card) => (
+            <TouchableOpacity
+              key={card.id}
+              style={[
+                styles.summaryCard,
+                {
+                  backgroundColor: card.color,
+                  borderLeftColor: card.borderColor,
+                },
+                !card.screen && styles.summaryCardDisabled,
+              ]}
+              activeOpacity={card.screen ? 0.8 : 1}
+              onPress={() => handleCardPress(card)}
+            >
+              <Text style={styles.summaryCardIcon}>{card.icon}</Text>
+              <Text style={styles.summaryCardValue}>{card.value}</Text>
+              <Text style={styles.summaryCardTitle}>{card.title}</Text>
+              <Text style={styles.summaryCardUnit}>{card.unit}</Text>
+              {card.screen && <Text style={styles.summaryCardArrow}>→</Text>}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ── Quick Entry ── */}
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Quick Entry</Text>
+        </View>
+
+        <View style={styles.quickGrid}>
+          {QUICK_ACTIONS.map((action, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.quickCard}
+              activeOpacity={0.8}
+              onPress={() => navigateToForm(action.api)}
+            >
+              <Text style={styles.quickIcon}>{action.icon}</Text>
+              <Text style={styles.quickLabel}>{action.label}</Text>
+              <Text style={styles.quickArrow}>→</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ── All Modules ── */}
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>All Modules</Text>
+        </View>
+
+        <View style={styles.modulesGrid}>
+          {FORMS.map((form, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.moduleCard}
+              activeOpacity={0.8}
+              onPress={() =>
+                navigation.navigate("DynamicForm", {
+                  title: form.title,
+                  fields: form.fields,
+                  api: form.api,
+                })
+              }
+            >
+              <Text style={styles.moduleIcon}>{getFormIcon(form.api)}</Text>
+              <Text style={styles.moduleText}>{form.title}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ── Sidebar ── */}
+      <SidebarMenu
+        visible={sidebarVisible}
+        onClose={() => setSidebarVisible(false)}
+        navigation={navigation}
+      />
     </View>
   );
 };
@@ -45,51 +265,144 @@ const HomeScreen = ({ navigation }: any) => {
 export default HomeScreen;
 
 const styles = StyleSheet.create({
-  wrapper: {
+  safe: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: "#1e3a5f",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
+  container: { flex: 1, backgroundColor: "#f3f4f6" },
 
-  container: {
-    padding: 16,
-    paddingBottom: 30,
-  },
-
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#1e3a5f',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-
-  subtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-
-  card: {
-    backgroundColor: '#ffffff',
-    paddingVertical: 18,
+  // ── Header ──
+  header: {
+    backgroundColor: "#1e3a5f",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  menuBtn: { padding: 6, justifyContent: "center" },
+  hamburger: {
+    width: 24,
+    height: 3,
+    backgroundColor: "#fff",
+    borderRadius: 2,
+    marginBottom: 5,
+  },
+  greetingBox: { flex: 1 },
+  greeting: { fontSize: 17, fontWeight: "700", color: "#fff" },
+  greetingSubtitle: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.65)",
+    marginTop: 2,
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 
-    // Shadow (iOS)
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+  // ── Date strip ──
+  dateStrip: {
+    backgroundColor: "#163060",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  dateText: { color: "rgba(255,255,255,0.75)", fontSize: 12 },
+
+  // ── Section rows ──
+  sectionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#1e3a5f" },
+  sectionHint: { fontSize: 12, color: "#9ca3af" },
+
+  // ── Summary cards ──
+  cardsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  summaryCard: {
+    width: "47%",
+    padding: 14,
+    borderRadius: 14,
+    borderLeftWidth: 4,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
-
-    // Elevation (Android)
-    elevation: 3,
+  },
+  summaryCardDisabled: { opacity: 0.7 },
+  summaryCardIcon: { fontSize: 26, marginBottom: 8 },
+  summaryCardValue: { fontSize: 26, fontWeight: "800", color: "#1e3a5f" },
+  summaryCardTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#374151",
+    marginTop: 2,
+  },
+  summaryCardUnit: { fontSize: 11, color: "#9ca3af", marginTop: 2 },
+  summaryCardArrow: {
+    fontSize: 12,
+    color: "#9ca3af",
+    marginTop: 6,
+    textAlign: "right",
   },
 
-  cardText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+  // ── Quick actions ──
+  quickGrid: { paddingHorizontal: 12, gap: 10 },
+  quickCard: {
+    backgroundColor: "#fff",
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  quickIcon: { fontSize: 22, marginRight: 12 },
+  quickLabel: { flex: 1, fontSize: 14, fontWeight: "600", color: "#374151" },
+  quickArrow: { fontSize: 16, color: "#9ca3af" },
+
+  // ── All modules ──
+  modulesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  moduleCard: {
+    width: "47%",
+    backgroundColor: "#fff",
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  moduleIcon: { fontSize: 28, marginBottom: 8 },
+  moduleText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#374151",
+    textAlign: "center",
   },
 });
