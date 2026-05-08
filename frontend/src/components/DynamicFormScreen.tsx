@@ -13,6 +13,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   Keyboard,
+  StatusBar,
 } from "react-native";
 import {
   fetchSheds,
@@ -67,7 +68,7 @@ const fetchDropdownData = async (
 };
 
 // ─── Main Screen ──────────────────────────────────────────
-const DynamicFormScreen = ({ route }: any) => {
+const DynamicFormScreen = ({ route, navigation }: any) => {
   const { title, fields, api } = route.params;
 
   const [form, setForm] = useState<any>({});
@@ -88,7 +89,7 @@ const DynamicFormScreen = ({ route }: any) => {
     const loadDropdowns = async () => {
       setLoadingDropdowns(true);
       try {
-        console.log('API_BASE_URL:', API_BASE_URL);
+        console.log("API_BASE_URL:", API_BASE_URL);
         const results: Record<string, any[]> = {};
         for (const field of fields) {
           if (field.type === "dropdown_api" && !field.dependsOn) {
@@ -206,6 +207,19 @@ const DynamicFormScreen = ({ route }: any) => {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
     >
+      {/* ── Form Header ── */}
+      <View style={styles.formHeader}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.formTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        <View style={{ width: 40 }} />
+      </View>
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
@@ -511,6 +525,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#eee",
     borderRadius: 8,
+  },
+  formHeader: {
+    backgroundColor: "#1e3a5f",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    paddingTop:
+      Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) + 14 : 14,
+  },
+  backBtn: { width: 40, justifyContent: "center" },
+  backIcon: { fontSize: 22, color: "#fff", fontWeight: "600" },
+  formTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#fff",
+    textAlign: "center",
   },
   optionSelected: { backgroundColor: "#dbeafe" },
   optionText: { color: "#111827" },
