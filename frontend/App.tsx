@@ -10,6 +10,14 @@ import EggSalesDetailScreen from "./src/screens/summariesScreens/EggSalesDetailS
 import BirdStockDetailScreen from "./src/screens/summariesScreens/BirdStockDetailScreen";
 import FeedStockDetailScreen from "./src/screens/summariesScreens/FeedStockDetailScreen";
 
+//authscreens imports
+import SplashScreen          from './src/screens/auth/SplashScreen';
+import LoginScreen           from './src/screens/auth/LoginScreen';
+import SignUpScreen          from './src/screens/auth/SignUpScreen';
+import OTPScreen             from './src/screens/auth/OTPScreen';
+import ForgotPasswordScreen  from './src/screens/auth/ForgotPasswordScreen';
+import PendingApprovalScreen from './src/screens/auth/PendingApprovalScreen';
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -17,26 +25,25 @@ export default function App() {
     <NavigationContainer>
       <StatusBar style="light" />
       <Stack.Navigator
-        initialRouteName="Home"
-        screenOptions={{ headerShown: false }}
+        initialRouteName="Splash"
+        screenOptions={{ headerShown: false, animation: 'fade' }}
       >
-        <Stack.Screen
-          name="EggProductionDetail"
-          component={EggProductionDetailScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="EggStockDetail" component={EggStockDetailScreen} />
-        <Stack.Screen name="EggSalesDetail" component={EggSalesDetailScreen} />
-        <Stack.Screen
-          name="BirdStockDetail"
-          component={BirdStockDetailScreen}
-        />
-        <Stack.Screen
-          name="FeedStockDetail"
-          component={FeedStockDetailScreen}
-        />
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="DynamicForm" component={DynamicFormScreen} />
+        {/* ── Auth Flow ── */}
+        <Stack.Screen name="Splash"          component={SplashScreen} />
+        <Stack.Screen name="Login"           component={LoginScreen} />
+        <Stack.Screen name="SignUp"          component={SignUpScreen} />
+        <Stack.Screen name="OTP"             component={OTPScreen} />
+        <Stack.Screen name="ForgotPassword"  component={ForgotPasswordScreen} />
+        <Stack.Screen name="PendingApproval" component={PendingApprovalScreen} />
+
+        {/* ── App Flow ── */}
+        <Stack.Screen name="Home"                  component={HomeScreen} />
+        <Stack.Screen name="DynamicForm"           component={DynamicFormScreen} />
+        <Stack.Screen name="EggProductionDetail"   component={EggProductionDetailScreen} />
+        <Stack.Screen name="EggStockDetail"        component={EggStockDetailScreen} />
+        <Stack.Screen name="EggSalesDetail"        component={EggSalesDetailScreen} />
+        <Stack.Screen name="BirdStockDetail"       component={BirdStockDetailScreen} />
+        <Stack.Screen name="FeedStockDetail"       component={FeedStockDetailScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
