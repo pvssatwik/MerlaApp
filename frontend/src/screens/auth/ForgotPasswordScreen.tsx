@@ -11,25 +11,30 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { forgotPassword } from "../../services/authServices";
 
 const ForgotPasswordScreen = ({ navigation }: any) => {
   const [identifier, setIdentifier] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSendOtp = () => {
-    if (!identifier) {
-      Alert.alert("Validation", "Please enter your email or phone number");
-      return;
-    }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      navigation.navigate("OTP", {
-        identifier,
-        flow: "forgot",
-      });
-    }, 1000);
-  };
+ const handleSendOtp = async () => {
+  if (!identifier) {
+    Alert.alert('Validation', 'Please enter your email or phone');
+    return;
+  }
+  setLoading(true);
+  try {
+    const result = await forgotPassword(identifier);
+    navigation.navigate('OTP', {
+      identifier: result.identifier,
+      flow:       'forgot',
+    });
+  } catch (error: any) {
+    Alert.alert('Error ❌', error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={styles.safe}>

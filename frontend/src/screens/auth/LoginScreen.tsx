@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { login } from "../../services/authServices";
 
 const LoginScreen = ({ navigation }: any) => {
   const [identifier, setIdentifier] = useState("");
@@ -20,22 +21,41 @@ const LoginScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!identifier || !password) {
-      Alert.alert("Validation", "Please enter email/phone and password");
-      return;
-    }
-    setLoading(true);
+  if (!identifier || !password) {
+    Alert.alert("Validation", "Please enter email/phone and password");
+    return;
+  }
 
-    // Simulate API call — replace with real API later
-    setTimeout(() => {
-      setLoading(false);
-      // Navigate to OTP screen, pass identifier
-      navigation.navigate("OTP", {
-        identifier,
-        flow: "login", // 'login' | 'signup' | 'forgot'
-      });
-    }, 1000);
-  };
+  setLoading(true);
+
+  try {
+    // Call backend login API
+    const result = await login({
+      identifier,
+      password,
+    });
+
+    // Navigate to OTP screen
+    navigation.navigate("OTP", {
+      identifier: result.identifier,
+      flow: "login",
+      tempToken: result.tempToken,
+    });
+
+  } catch (error: any) {
+
+    // User not approved yet
+    if (error.message.includes("pending")) {
+      navigation.navigate("PendingApproval");
+
+    } else {
+      Alert.alert("Login Failed", error.message);
+    }
+
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={styles.safe}>

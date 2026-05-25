@@ -11,6 +11,8 @@ import {
   Platform,
   Alert,
 } from "react-native";
+import { resendOTP, verifyOTP } from "../../services/authServices";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const OTPScreen = ({ navigation, route }: any) => {
   const { identifier, flow } = route.params;
@@ -46,8 +48,9 @@ const OTPScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const otpCode = otp.join("");
+
     if (otpCode.length < 6) {
       Alert.alert("Validation", "Please enter the 6-digit OTP");
       return;
@@ -55,39 +58,49 @@ const OTPScreen = ({ navigation, route }: any) => {
 
     setLoading(true);
 
-    // Simple flow — no backend validation for now
-    setTimeout(() => {
-      setLoading(false);
-
-      if (flow === "login") {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Home" }],
+    try {
+      if (flow === "forgot") {
+        navigation.navigate("ResetPassword", {
+          identifier,
+          otp: otpCode,
         });
-      } else if (flow === "signup") {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "PendingApproval" }],
-        });
-      } else if (flow === "forgot") {
-        Alert.alert("Success ✅", "Password reset link sent!");
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Login" }],
-        });
+        return;
       }
-    }, 1000);
+
+      const result = await verifyOTP({ identifier, otp: otpCode });
+
+      await AsyncStorage.setItem("token", result.token);
+      await AsyncStorage.setItem("user", JSON.stringify(result.user));
+
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Home" }],
+      });
+    } catch (error: any) {
+      Alert.alert("Verification Failed ❌", error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (timer > 0) return;
+
     setResending(true);
-    setOtp(["", "", "", "", "", ""]);
-    setTimeout(() => {
-      setResending(false);
+
+    try {
+      await resendOTP(identifier);
+
+      setOtp(["", "", "", "", "", ""]);
+
       setTimer(30);
-      Alert.alert("OTP Sent ✅", `A new OTP has been sent to ${identifier}`);
-    }, 800);
+
+      Alert.alert("OTP Sent ✅", `New OTP sent to ${identifier}`);
+    } catch (error: any) {
+      Alert.alert("Error ❌", error.message);
+    } finally {
+      setResending(false);
+    }
   };
 
   const maskedIdentifier = identifier?.includes("@")

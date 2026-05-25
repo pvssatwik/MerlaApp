@@ -13,6 +13,7 @@ import {
   Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { signUp } from "../../services/authServices";
 
 const SignUpScreen = ({ navigation }: any) => {
   const [form, setForm] = useState({
@@ -34,7 +35,14 @@ const SignUpScreen = ({ navigation }: any) => {
   const set = (key: string, val: any) =>
     setForm((prev) => ({ ...prev, [key]: val }));
 
-  const formatDate = (d: Date) => d.toLocaleDateString("en-IN");
+  const formatDateDisplay = (d: Date) => d.toLocaleDateString("en-IN");
+
+  const formatDateForApi = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
 
   const validate = () => {
     if (!form.firstName) {
@@ -70,19 +78,30 @@ const SignUpScreen = ({ navigation }: any) => {
 
   const handleSignUp = async () => {
     if (!validate()) return;
+
     setLoading(true);
 
-    // Simulate API — replace with real API later
-    // isActive: false by default — needs superadmin approval
-    setTimeout(() => {
-      setLoading(false);
-      // Go to OTP verification first
-      navigation.navigate("OTP", {
-        identifier: form.email || form.phone,
-        flow: "signup",
-        formData: { ...form, isActive: false },
+    try {
+      await signUp({
+        farm_name: "MERLA_FARMS",
+        userid: form.email.split("@")[0] + "_" + form.phone.slice(-4),
+        user_firstname: form.firstName,
+        user_lastname: form.lastName,
+        user_dob: formatDateForApi(form.dob),
+        user_email: form.email,
+        user_contact_no: form.phone,
+        password: form.password,
+        gov_id: form.govId,
+        requested_role: "USER",
       });
-    }, 1000);
+      
+      // Go directly to pending approval screen
+      navigation.replace("PendingApproval");
+    } catch (error: any) {
+      Alert.alert("Signup Failed ❌", error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -145,7 +164,7 @@ const SignUpScreen = ({ navigation }: any) => {
                 style={styles.input}
                 onPress={() => setShowDob(true)}
               >
-                <Text style={styles.dateText}>📅 {formatDate(form.dob)}</Text>
+                <Text style={styles.dateText}>📅 {formatDateDisplay(form.dob)}</Text>
               </TouchableOpacity>
               {showDob && (
                 <DateTimePicker

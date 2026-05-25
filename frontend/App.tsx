@@ -17,6 +17,7 @@ import SignUpScreen          from './src/screens/auth/SignUpScreen';
 import OTPScreen             from './src/screens/auth/OTPScreen';
 import ForgotPasswordScreen  from './src/screens/auth/ForgotPasswordScreen';
 import PendingApprovalScreen from './src/screens/auth/PendingApprovalScreen';
+import ResetPasswordScreen from "./src/screens/auth/ResetPasswordScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -35,6 +36,7 @@ export default function App() {
         <Stack.Screen name="OTP"             component={OTPScreen} />
         <Stack.Screen name="ForgotPassword"  component={ForgotPasswordScreen} />
         <Stack.Screen name="PendingApproval" component={PendingApprovalScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
 
         {/* ── App Flow ── */}
         <Stack.Screen name="Home"                  component={HomeScreen} />
