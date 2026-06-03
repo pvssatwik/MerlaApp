@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { login } from "../../services/authServices";
+import { login } from "../../services/authService";
 
 const LoginScreen = ({ navigation }: any) => {
   const [identifier, setIdentifier] = useState("");
@@ -37,10 +37,10 @@ const LoginScreen = ({ navigation }: any) => {
 
     // Navigate to OTP screen
     navigation.navigate("OTP", {
-      identifier: result.identifier,
-      flow: "login",
-      tempToken: result.tempToken,
-    });
+  userId: result.userId,
+  identifier: result.identifier,
+  flow: "login",
+});
 
   } catch (error: any) {
 

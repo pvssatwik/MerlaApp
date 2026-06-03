@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ActivityIndicator,
   TouchableOpacity, StatusBar, Platform, FlatList, Alert,
 } from 'react-native';
-import { API_BASE_URL, API_HEADERS } from '../../config/api';
+import { authGet } from '../../config/api';
 
 const FeedStockDetailScreen = ({ navigation }: any) => {
   const [data, setData]       = useState<any[]>([]);
@@ -12,12 +12,10 @@ const FeedStockDetailScreen = ({ navigation }: any) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res    = await fetch(`${API_BASE_URL}/api/transactions/godown-sylo-stock`, { headers: API_HEADERS });
-      const result = await res.json();
-      if (result.success) setData(result.data);
-      else Alert.alert('Error', result.error);
-    } catch {
-      Alert.alert('Error', 'Could not fetch data');
+      const result = await authGet('/api/transactions/godown-sylo-stock');
+      setData(result.data);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not fetch data');
     } finally {
       setLoading(false);
     }

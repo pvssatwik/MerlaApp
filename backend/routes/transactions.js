@@ -17,7 +17,11 @@ const {
   fetchGodownSyloStock,
 } = require('../controllers/eggProductionController');
 
+const { verifyToken, checkShedAccess, checkDateRestriction } = require('../middleware/auth');
 const dropdownController = require('../controllers/dropdownController');
+
+// ── All transaction routes require auth ───────────────
+router.use(verifyToken);
 
 // ── Transaction routes ────────────────────────────────
 router.post('/egg-production',   insertEggProduction);

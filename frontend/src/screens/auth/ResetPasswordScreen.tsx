@@ -11,10 +11,10 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { resetPassword } from "../../services/authServices";
+import { resetPassword } from "../../services/authService";
 
 const ResetPasswordScreen = ({ navigation, route }: any) => {
-  const { identifier, otp } = route.params;
+  const { resetToken } = route.params;
   const [newPassword, setNew] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showNew, setShowNew] = useState(false);
@@ -32,7 +32,7 @@ const ResetPasswordScreen = ({ navigation, route }: any) => {
     }
     setLoading(true);
     try {
-      await resetPassword({ identifier, otp, new_password: newPassword });
+      await resetPassword({ resetToken, new_password: newPassword });
       Alert.alert("Success ✅", "Password reset successfully!", [
         {
           text: "Login",

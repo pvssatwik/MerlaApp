@@ -5,7 +5,7 @@ import {
   FlatList, Alert, ScrollView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { API_BASE_URL, API_HEADERS } from '../../config/api';
+import { authGet } from '../../config/api';
 
 const FILTERS = [
   { label: 'Today',   value: 'today'  },
@@ -29,16 +29,14 @@ const BirdStockDetailScreen = ({ navigation }: any) => {
   const fetchData = async (selectedFilter = filter) => {
     setLoading(true);
     try {
-      let url = `${API_BASE_URL}/api/transactions/cull-birds-summary?filter=${selectedFilter}`;
+      let url = `/api/transactions/cull-birds-summary?filter=${selectedFilter}`;
       if (selectedFilter === 'custom') {
         url += `&start_date=${formatDate(startDate)}&end_date=${formatDate(endDate)}`;
       }
-      const res    = await fetch(url, { headers: API_HEADERS });
-      const result = await res.json();
-      if (result.success) setData(result.data);
-      else Alert.alert('Error', result.error);
-    } catch {
-      Alert.alert('Error', 'Could not fetch data');
+      const result = await authGet(url);
+      setData(result.data);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not fetch data');
     } finally {
       setLoading(false);
     }

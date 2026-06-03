@@ -1,172 +1,300 @@
-require('dotenv').config();
-const bcrypt      = require('bcryptjs');
-const jwt         = require('jsonwebtoken');
-const nodemailer  = require('nodemailer');
-const connection  = require('../db/snowflake');
+require("dotenv").config();
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
+const { v4: uuid } = require("uuid");
+const connection = require("../db/snowflake");
 
-// ── In-memory OTP store (use Redis in production) ─────
-const otpStore = {};
-
-// ── Dev/testing OTP bypass (set OTP_BYPASS=false in production) ──
+// ── OTP BYPASS ────────────────────────────────────────
 const isOtpBypassEnabled = () =>
-  process.env.OTP_BYPASS === 'true' || process.env.OTP_BYPASS === '1';
-
-const getOtpBypassCode = () => process.env.OTP_BYPASS_CODE || '123456';
-
+  process.env.OTP_BYPASS === "true" || process.env.OTP_BYPASS === "1";
+const getOtpBypassCode = () => process.env.OTP_BYPASS_CODE || "123456";
 const isBypassOtp = (otp) => isOtpBypassEnabled() && otp === getOtpBypassCode();
 
 if (isOtpBypassEnabled()) {
-  console.warn(
-    `⚠️  OTP_BYPASS enabled — emails skipped. Use OTP: ${getOtpBypassCode()}`
-  );
+  console.warn(`⚠️  OTP_BYPASS enabled — Use OTP: ${getOtpBypassCode()}`);
 }
 
 // ── Email transporter ─────────────────────────────────
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
 });
 
-// ── Generate 6-digit OTP ──────────────────────────────
+// ── Generate OTP ──────────────────────────────────────
 const generateOTP = () =>
   isOtpBypassEnabled()
     ? getOtpBypassCode()
     : Math.floor(100000 + Math.random() * 900000).toString();
 
-const fetchUserByIdentifier = (identifier, complete) => {
-  connection.execute({
-    sqlText: `
-      SELECT USERID, USER_EMAIL, USER_CONTACT_NO, FARM_NAME,
-             USER_FIRSTNAME, USER_LASTNAME
-      FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS
-      WHERE USER_EMAIL = ? OR USER_CONTACT_NO = ?
-      LIMIT 1
-    `,
-    binds: [identifier, identifier],
-    complete: (err, stmt, rows) => {
-      if (err || !rows || rows.length === 0) {
-        return complete(err || new Error('User not found'), null);
-      }
-      const u = rows[0];
-      complete(null, {
-        userid:    u.USERID,
-        email:     u.USER_EMAIL,
-        contact:   u.USER_CONTACT_NO,
-        farm_name: u.FARM_NAME,
-        firstname: u.USER_FIRSTNAME,
-        lastname:  u.USER_LASTNAME,
-      });
-    },
-  });
-};
-
-// ── Send OTP email ────────────────────────────────────
-const sendOTPEmail = async (email, otp, purpose = 'Login') => {
+// ── Send OTP Email ────────────────────────────────────
+const sendOTPEmail = async (email, otp, purpose = "Login") => {
   if (isOtpBypassEnabled()) {
-    console.log(`[OTP BYPASS] ${purpose} for ${email} — code: ${getOtpBypassCode()}`);
+    console.log(
+      `[OTP BYPASS] ${purpose} for ${email} — code: ${getOtpBypassCode()}`,
+    );
     return;
   }
   await transporter.sendMail({
-    from:    `"Merla Farms" <${process.env.EMAIL_USER}>`,
-    to:      email,
-    subject: `Merla Farms - Your OTP for ${purpose}`,
+    from: `"Merla Farms" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: `Merla Farms - OTP for ${purpose}`,
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 400px; margin: auto;">
-        <h2 style="color: #1e3a5f;">🐔 Merla Farms</h2>
-        <p>Your OTP for <strong>${purpose}</strong> is:</p>
-        <h1 style="letter-spacing: 8px; color: #2563eb;">${otp}</h1>
-        <p>This OTP expires in <strong>${process.env.OTP_EXPIRY_MINS} minutes</strong>.</p>
-        <p style="color: #9ca3af;">If you did not request this, please ignore this email.</p>
+      <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;">
+        <h2 style="color:#1e3a5f;">🐔 Merla Farms</h2>
+        <p>Your OTP for <strong>${purpose}</strong>:</p>
+        <h1 style="letter-spacing:12px;color:#2563eb;">${otp}</h1>
+        <p>Expires in <strong>${process.env.OTP_EXPIRY_MINS} minutes</strong>.</p>
       </div>
     `,
   });
 };
 
-// Snowflake expects YYYY-MM-DD (not en-IN style DD/M/YYYY)
-const normalizeDateForSnowflake = (dateStr) => {
-  if (!dateStr) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-
-  const slashMatch = String(dateStr).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (slashMatch) {
-    const [, day, month, year] = slashMatch;
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-  }
-
-  return dateStr;
+// ── Generate JWT Tokens ───────────────────────────────
+const generateTokens = (payload) => {
+  const accessToken = jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
+    expiresIn: process.env.JWT_ACCESS_EXPIRY,
+  });
+  const refreshToken = jwt.sign(
+    { userId: payload.userId },
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: process.env.JWT_REFRESH_EXPIRY },
+  );
+  return { accessToken, refreshToken };
 };
+
+// ── Store OTP via SP ──────────────────────────────────
+const storeOTP = (userId, otp, otpType) => {
+  return new Promise((resolve, reject) => {
+    const otpId = uuid();
+    const now = new Date();
+    const expiresAt = new Date(
+      now.getTime() + parseInt(process.env.OTP_EXPIRY_MINS) * 60 * 1000,
+    )
+      .toISOString()
+      .replace("T", " ")
+      .replace("Z", "");
+    const createdAt = now.toISOString().replace("T", " ").replace("Z", "");
+
+    // Invalidate old OTPs
+    connection.execute({
+      sqlText: `
+        UPDATE MERLAFARMS.APP_TRANSACTION.USER_OTP
+        SET IS_USED = TRUE
+        WHERE USER_ID = ? AND OTP_TYPE = ? AND IS_USED = FALSE
+      `,
+      binds: [userId, otpType],
+      complete: (updateErr) => {
+        if (updateErr)
+          console.error("Invalidate OTP error:", updateErr.message);
+
+        // Insert via SP — column names, not P_ prefix
+        connection.execute({
+          sqlText: `CALL MERLAFARMS.APP_TRANSACTION.SP_STORE_OTP(?,?,?,?,?,?,?)`,
+          binds: [
+            otpId, // OTP_ID
+            userId, // USER_ID
+            otp, // OTP_CODE
+            otpType, // OTP_TYPE
+            expiresAt, // EXPIRES_AT
+            false, // IS_USED
+            createdAt, // CREATED_AT
+          ],
+          complete: (err, stmt, rows) => {
+            if (err) {
+              console.error("SP_STORE_OTP error:", err.message);
+              return reject(err);
+            }
+            console.log("SP_STORE_OTP result:", JSON.stringify(rows?.[0]));
+            resolve(otpId);
+          },
+        });
+      },
+    });
+  });
+};
+
+// ── Verify OTP from DB ────────────────────────────────
+const verifyOTPFromDB = (userId, otp, otpType) => {
+  return new Promise((resolve, reject) => {
+    connection.execute({
+      sqlText: `
+        SELECT OTP_ID, EXPIRES_AT
+        FROM MERLAFARMS.APP_TRANSACTION.USER_OTP
+        WHERE USER_ID    = ?
+        AND   OTP_CODE   = ?
+        AND   OTP_TYPE   = ?
+        AND   IS_USED    = FALSE
+        AND   EXPIRES_AT > CURRENT_TIMESTAMP
+        ORDER BY CREATED_AT DESC
+        LIMIT 1
+      `,
+      binds: [userId, otp, otpType],
+      complete: (err, stmt, rows) => {
+        if (err) return reject(err);
+        if (!rows || rows.length === 0) return resolve(null);
+
+        // Mark as used
+        connection.execute({
+          sqlText: `
+            UPDATE MERLAFARMS.APP_TRANSACTION.USER_OTP
+            SET IS_USED = TRUE WHERE OTP_ID = ?
+          `,
+          binds: [rows[0].OTP_ID],
+          complete: () => resolve(rows[0]),
+        });
+      },
+    });
+  });
+};
+
+// ── Store Session via SP ──────────────────────────────
+const storeSession = (userId, refreshToken, deviceId, deviceName) => {
+  return new Promise((resolve, reject) => {
+    const sessionId = uuid();
+    const now = new Date().toISOString().replace("T", " ").replace("Z", "");
+
+    connection.execute({
+      sqlText: `CALL MERLAFARMS.APP_TRANSACTION.SP_INSERT_USER_SESSION(?,?,?,?,?,?,?,?)`,
+      binds: [
+        sessionId, // SESSION_ID
+        userId, // USER_ID
+        refreshToken, // REFRESH_TOKEN
+        deviceId || "UNKNOWN", // DEVICE_ID
+        deviceName || "Mobile App", // DEVICE_NAME
+        now, // LOGIN_TIME
+        now, // LAST_ACTIVITY
+        true, // IS_ACTIVE
+      ],
+      complete: (err, stmt, rows) => {
+        if (err) {
+          console.error("SP_INSERT_USER_SESSION error:", err.message);
+          return reject(err);
+        }
+        console.log(
+          "SP_INSERT_USER_SESSION result:",
+          JSON.stringify(rows?.[0]),
+        );
+        resolve(sessionId);
+      },
+    });
+  });
+};
+
+// ── Fetch user with shed assignment ───────────────────
+const fetchUserWithShed = (userId) => {
+  return new Promise((resolve, reject) => {
+    connection.execute({
+      sqlText: `
+         SELECT
+          FU.USERID,
+          FU.USER_EMAIL,
+          FU.USER_CONTACT_NO,
+          FU.FARM_NAME,
+          FU.USER_FIRSTNAME,
+          FU.USER_LASTNAME,
+          USA.ROLE_ID,
+          RM.ROLE_NAME,
+          USA.SHED_NAME,
+          USA.ASSIGNMENT_END_DATE
+        FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS FU
+        LEFT JOIN MERLAFARMS.APP_TRANSACTION.USER_SHED_ASSIGNMENT USA
+          ON FU.USERID = USA.USERID
+        LEFT JOIN MERLAFARMS.APP_TRANSACTION.FARM_ROLE_MASTER RM
+          ON USA.ROLE_ID = RM.ROLE_ID
+          AND FU.FARM_NAME = RM.FARM_NAME
+        WHERE FU.USERID = ?
+        LIMIT 1
+      `,
+      binds: [userId],
+      complete: (err, stmt, rows) => {
+        if (err) return reject(err);
+        if (!rows || rows.length === 0) return resolve(null);
+        resolve(rows[0]);
+      },
+    });
+  });
+};
+
+// ── Build JWT payload from user row ──────────────────
+const buildPayload = (user) => ({
+  userId: user.USERID,
+  email: user.USER_EMAIL,
+  farmName: user.FARM_NAME,
+  firstname: user.USER_FIRSTNAME,
+  lastname: user.USER_LASTNAME,
+  role: user.ROLE_NAME || user.ROLE_ID || "SUPERVISOR",
+  sheds: user.SHED_NAME ? [user.SHED_NAME] : [],
+});
 
 // ─────────────────────────────────────────────────────
 // 1. SIGN UP
 // ─────────────────────────────────────────────────────
 const signUp = async (req, res) => {
   const {
-    farm_name, userid, user_firstname, user_lastname,
-    user_dob, user_email, user_contact_no, password, gov_id,
+    farm_name,
+    userid,
+    user_firstname,
+    user_lastname,
+    user_dob,
+    user_email,
+    user_contact_no,
+    password,
+    gov_id,
   } = req.body;
 
-  // Validate required fields
-  if (!userid || !user_email || !user_contact_no || !password || !gov_id) {
+  if (!userid || !user_email || !user_contact_no || !password) {
     return res.status(400).json({
       success: false,
-      error: 'userid, email, contact number, password and government ID are required',
+      error: "userid, email, contact number and password are required",
     });
   }
 
   try {
-    // Hash password
-    const salt          = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
-    console.log('SignUp - calling SP for user:', userid);
-
     connection.execute({
-      sqlText: `
-        CALL MERLAFARMS.APP_TRANSACTION.SP_CREATE_FARM_USER_SQL(?,?,?,?,?,?,?,?,?)
-      `,
+      sqlText: `CALL MERLAFARMS.APP_TRANSACTION.SP_CREATE_FARM_USER_SQL(?,?,?,?,?,?,?,?,?)`,
       binds: [
-        farm_name       || 'MERLA_FARMS',
+        farm_name || "MERLA_FARMS",
         userid,
-        user_firstname  || '',
-        user_lastname   || '',
-        normalizeDateForSnowflake(user_dob),
+        user_firstname || "",
+        user_lastname || "",
+        user_dob || null,
         user_email,
         user_contact_no,
         password_hash,
-        'PREAPPROVED',   // default status
+        gov_id || "",
       ],
       complete: (err, stmt, rows) => {
         if (err) {
-          console.error('SignUp SP error:', err.message);
+          console.error("SignUp SP error:", err.message);
           return res.status(500).json({ success: false, error: err.message });
         }
-
-        const spResult = rows[0]['SP_CREATE_FARM_USER_SQL'];
-        console.log('SignUp SP result:', spResult);
-
-        if (spResult && spResult.toUpperCase().includes('ERROR')) {
+        const spResult = rows[0]["SP_CREATE_FARM_USER_SQL"];
+        console.log("SignUp result:", spResult);
+        if (spResult && spResult.toUpperCase().includes("ERROR")) {
           return res.status(400).json({ success: false, error: spResult });
         }
-
-        res.json({
+        return res.json({
           success: true,
-          message: 'Account created successfully. Awaiting admin approval.',
-          status:  'PREAPPROVED',
+          message: "Registration successful. Awaiting admin approval.",
+          status: "PENDING",
         });
       },
     });
-
-  } catch (error) {
-    console.error('SignUp error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (err) {
+    console.error("SignUp error:", err.message);
+    return res.status(500).json({ success: false, error: err.message });
   }
 };
 
 // ─────────────────────────────────────────────────────
-// 2. LOGIN — validate credentials + send OTP
+// 2. LOGIN
 // ─────────────────────────────────────────────────────
 const login = async (req, res) => {
   const { identifier, password } = req.body;
@@ -174,281 +302,366 @@ const login = async (req, res) => {
   if (!identifier || !password) {
     return res.status(400).json({
       success: false,
-      error: 'Email/phone and password are required',
+      error: "Email/phone and password are required",
     });
   }
 
-  try {
-    // Determine if identifier is email or phone
-    const isEmail   = identifier.includes('@');
-    const userid    = '';
-    const email     = isEmail ? identifier : '';
-    const contact   = isEmail ? '' : identifier;
+  connection.execute({
+    sqlText: `
+      SELECT
+    FU.USERID, FU.USER_EMAIL, FU.USER_CONTACT_NO,
+    FU.PASSWORD_HASH, FU.STATUS, FU.FARM_NAME,
+    FU.USER_FIRSTNAME, FU.USER_LASTNAME,
+    USA.ROLE_ID, RM.ROLE_NAME, USA.SHED_NAME
+  FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS FU
+  LEFT JOIN MERLAFARMS.APP_TRANSACTION.USER_SHED_ASSIGNMENT USA
+    ON FU.USERID = USA.USERID
+  LEFT JOIN MERLAFARMS.APP_TRANSACTION.FARM_ROLE_MASTER RM
+    ON CAST(USA.ROLE_ID AS VARCHAR) = CAST(RM.ROLE_ID AS VARCHAR)
+    AND FU.FARM_NAME = RM.FARM_NAME
+  WHERE FU.USER_EMAIL = ? OR FU.USER_CONTACT_NO = ?
+  LIMIT 1
+    `,
+    binds: [identifier, identifier],
+    complete: async (err, stmt, rows) => {
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
 
-    // We need to fetch the stored hash first
-    // Query FARM_USERS to find the user
-    connection.execute({
-      sqlText: `
-        SELECT USERID, USER_EMAIL, USER_CONTACT_NO,
-               PASSWORD_HASH, STATUS, FARM_NAME,
-               USER_FIRSTNAME, USER_LASTNAME
-        FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS
-        WHERE USER_EMAIL = ? OR USER_CONTACT_NO = ?
-        LIMIT 1
-      `,
-      binds: [identifier, identifier],
-      complete: async (err, stmt, rows) => {
-        if (err) {
-          console.error('Login fetch error:', err.message);
-          return res.status(500).json({ success: false, error: err.message });
-        }
+      if (!rows || rows.length === 0) {
+        return res.status(401).json({
+          success: false,
+          error: "No account found with this email or phone.",
+        });
+      }
 
-        if (!rows || rows.length === 0) {
-          return res.status(401).json({
-            success: false,
-            error: 'User not found. Please check your email or phone.',
-          });
-        }
+      const user = rows[0];
 
-        const user = rows[0];
+      // Status checks
+      if (user.STATUS === "PENDING") {
+        return res.status(403).json({
+          success: false,
+          error: "Your account is pending admin approval.",
+          status: "PENDING",
+        });
+      }
 
-        // Check account status
-        if (user.STATUS === 'PREAPPROVED') {
-          return res.status(403).json({
-            success:  false,
-            error:    'Your account is pending admin approval.',
-            status:   'PREAPPROVED',
-          });
-        }
+      if (["REJECTED", "BLOCKED", "INACTIVE"].includes(user.STATUS)) {
+        return res.status(403).json({
+          success: false,
+          error: "Your account is not active. Contact admin.",
+          status: user.STATUS,
+        });
+      }
 
-        if (user.STATUS === 'INACTIVE' || user.STATUS === 'REJECTED') {
-          return res.status(403).json({
-            success: false,
-            error:   'Your account has been deactivated. Contact admin.',
-            status:  user.STATUS,
-          });
-        }
+      if (!["ACTIVE", "APPROVED"].includes(user.STATUS)) {
+        return res.status(403).json({
+          success: false,
+          error: "Account not active. Contact admin.",
+          status: user.STATUS,
+        });
+      }
 
-        // Verify password
+      // Verify password
+      try {
         const isMatch = await bcrypt.compare(password, user.PASSWORD_HASH);
         if (!isMatch) {
           return res.status(401).json({
             success: false,
-            error:   'Invalid password. Please try again.',
+            error: "Incorrect password. Please try again.",
           });
         }
+      } catch (bcryptErr) {
+        return res
+          .status(500)
+          .json({ success: false, error: "Password verification failed" });
+      }
 
-        // Now call SP_VALIDATE_FARM_USER for extra validation
-        connection.execute({
-          sqlText: `
-            CALL MERLAFARMS.APP_TRANSACTION.SP_VALIDATE_FARM_USER(?,?,?,?)
-          `,
-          binds: [
-            user.USERID,
-            user.USER_EMAIL,
-            user.USER_CONTACT_NO,
-            user.PASSWORD_HASH,
-          ],
-          complete: async (err2, stmt2, rows2) => {
-            if (err2) {
-              console.error('Validate SP error:', err2.message);
-              return res.status(500).json({ success: false, error: err2.message });
-            }
+      // Call SP_VALIDATE_FARM_USER
+      connection.execute({
+        sqlText: `CALL MERLAFARMS.APP_TRANSACTION.SP_VALIDATE_FARM_USER(?,?,?,?)`,
+        binds: [
+          user.USERID,
+          user.USER_EMAIL,
+          user.USER_CONTACT_NO,
+          user.PASSWORD_HASH,
+        ],
+        complete: async (err2, stmt2, rows2) => {
+          if (err2)
+            return res
+              .status(500)
+              .json({ success: false, error: err2.message });
 
-            const spResult = rows2[0]['SP_VALIDATE_FARM_USER'];
-            console.log('Validate SP result:', spResult);
+          const spResult = rows2[0]["SP_VALIDATE_FARM_USER"];
+          console.log("Validate SP:", spResult);
 
-            if (spResult && spResult.toUpperCase().includes('ERROR')) {
-              return res.status(401).json({ success: false, error: spResult });
-            }
+          if (spResult && spResult.toUpperCase().includes("ERROR")) {
+            return res.status(401).json({ success: false, error: spResult });
+          }
 
-            // Generate and send OTP
-            const otp = generateOTP();
-            const key = user.USER_EMAIL || user.USER_CONTACT_NO;
+          // Generate OTP
+          const otp = generateOTP();
+          console.log(`LOGIN OTP for ${user.USER_EMAIL}: ${otp}`);
 
-            // Store OTP with expiry
-            otpStore[key] = {
-              otp,
-              userid:    user.USERID,
-              email:     user.USER_EMAIL,
-              contact:   user.USER_CONTACT_NO,
-              farm_name: user.FARM_NAME,
-              firstname: user.USER_FIRSTNAME,
-              lastname:  user.USER_LASTNAME,
-              expires:   Date.now() + (parseInt(process.env.OTP_EXPIRY_MINS) * 60 * 1000),
-            };
-
+          try {
+            // Only store OTP in DB if bypass is OFF
             if (!isOtpBypassEnabled()) {
-              console.log(`OTP for ${key}: ${otp}`); // remove in production
+              await storeOTP(user.USERID, otp, "LOGIN");
+            } else {
+              console.log(
+                `[OTP BYPASS] Skipping OTP store for user: ${user.USERID}`,
+              );
             }
 
-            // Send OTP email if email available
-            if (user.USER_EMAIL) {
-              try {
-                await sendOTPEmail(user.USER_EMAIL, otp, 'Login');
-              } catch (emailErr) {
-                console.error('Email error:', emailErr.message);
-                // Don't fail login if email fails — log OTP in console
-              }
-            }
+            // Send email (bypass skips email automatically)
+            await sendOTPEmail(user.USER_EMAIL, otp, "Login Verification");
 
-            res.json({
-              success:    true,
-              message:    `OTP sent to ${key}`,
-              identifier: key,
+            return res.json({
+              success: true,
+              message: isOtpBypassEnabled()
+                ? `Dev mode: use OTP ${getOtpBypassCode()}`
+                : `OTP sent to ${user.USER_EMAIL || user.USER_CONTACT_NO}`,
+              identifier: user.USER_EMAIL || user.USER_CONTACT_NO,
+              userId: user.USERID,
             });
-          },
-        });
-      },
-    });
-
-  } catch (error) {
-    console.error('Login error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-// ─────────────────────────────────────────────────────
-// 3. VERIFY OTP
-// ─────────────────────────────────────────────────────
-const issueJwtResponse = (res, user) => {
-  const token = jwt.sign(
-    {
-      userid:    user.userid,
-      email:     user.email,
-      contact:   user.contact,
-      farm_name: user.farm_name,
-      firstname: user.firstname,
-      lastname:  user.lastname,
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-
-  res.json({
-    success: true,
-    message: 'OTP verified successfully',
-    token,
-    user: {
-      userid:    user.userid,
-      email:     user.email,
-      farm_name: user.farm_name,
-      firstname: user.firstname,
-      lastname:  user.lastname,
+          } catch (otpErr) {
+            console.error("OTP error:", otpErr.message);
+            return res
+              .status(500)
+              .json({ success: false, error: "Failed to process OTP" });
+          }
+        },
+      });
     },
   });
 };
 
-const verifyOTP = (req, res) => {
-  const { identifier, otp } = req.body;
+// ─────────────────────────────────────────────────────
+// 3. VERIFY LOGIN OTP
+// ─────────────────────────────────────────────────────
+const verifyLoginOTP = async (req, res) => {
+  const { userId, otp, device_id, device_name } = req.body;
 
-  if (!identifier || !otp) {
+  if (!userId || !otp) {
     return res.status(400).json({
       success: false,
-      error: 'Identifier and OTP are required',
+      error: "userId and OTP are required",
     });
   }
 
-  if (isBypassOtp(otp)) {
-    return fetchUserByIdentifier(identifier, (err, user) => {
-      if (err || !user) {
+  try {
+    // Check bypass first
+    const isBypass = isBypassOtp(otp);
+
+    if (!isBypass) {
+      // Verify real OTP from DB
+      const otpRecord = await verifyOTPFromDB(userId, otp, "LOGIN");
+      if (!otpRecord) {
         return res.status(400).json({
           success: false,
-          error: 'User not found. Please check your email or phone.',
+          error: "Invalid or expired OTP. Please try again.",
         });
       }
-      delete otpStore[identifier];
-      return issueJwtResponse(res, user);
+    } else {
+      console.log(`[OTP BYPASS] Login OTP verified for user: ${userId}`);
+    }
+
+    // Fetch user
+    const user = await fetchUserWithShed(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    // Generate tokens
+    const payload = buildPayload(user);
+    const { accessToken, refreshToken } = generateTokens(payload);
+
+    // Store session
+    try {
+      await storeSession(userId, refreshToken, device_id, device_name);
+    } catch (sessErr) {
+      console.error("Session store error:", sessErr.message);
+      // Don't fail login if session store fails
+    }
+
+    return res.json({
+      success: true,
+      message: isBypass ? "Login successful (OTP bypass)" : "Login successful",
+      accessToken,
+      refreshToken,
+      user: {
+        userId: user.USERID,
+        email: user.USER_EMAIL,
+        farmName: user.FARM_NAME,
+        firstname: user.USER_FIRSTNAME,
+        lastname: user.USER_LASTNAME,
+        role: user.ROLE_ID || "SUPERVISOR",
+        sheds: user.SHED_NAME ? [user.SHED_NAME] : [],
+      },
     });
+  } catch (err) {
+    console.error("Verify OTP error:", err.message);
+    return res.status(500).json({ success: false, error: err.message });
   }
-
-  const stored = otpStore[identifier];
-
-  if (!stored) {
-    return res.status(400).json({
-      success: false,
-      error: 'OTP not found. Please request a new OTP.',
-    });
-  }
-
-  if (Date.now() > stored.expires) {
-    delete otpStore[identifier];
-    return res.status(400).json({
-      success: false,
-      error: 'OTP has expired. Please request a new one.',
-    });
-  }
-
-  if (stored.otp !== otp) {
-    return res.status(400).json({
-      success: false,
-      error: 'Invalid OTP. Please try again.',
-    });
-  }
-
-  delete otpStore[identifier];
-  issueJwtResponse(res, stored);
 };
 
 // ─────────────────────────────────────────────────────
-// 4. RESEND OTP
+// 4. REFRESH TOKEN
 // ─────────────────────────────────────────────────────
-const resendOTP = async (req, res) => {
-  const { identifier } = req.body;
+const refreshToken = (req, res) => {
+  const { refreshToken: token } = req.body;
 
-  if (!identifier) {
-    return res.status(400).json({ success: false, error: 'Identifier required' });
+  if (!token) {
+    return res
+      .status(400)
+      .json({ success: false, error: "Refresh token required" });
   }
 
-  // Fetch user
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+
+    connection.execute({
+      sqlText: `
+        SELECT SESSION_ID, USER_ID
+        FROM MERLAFARMS.APP_TRANSACTION.USER_SESSIONS
+        WHERE REFRESH_TOKEN = ? AND IS_ACTIVE = TRUE
+        LIMIT 1
+      `,
+      binds: [token],
+      complete: async (err, stmt, rows) => {
+        const hasSession = !err && rows && rows.length > 0;
+
+        if (!hasSession) {
+          console.warn(
+            "Refresh: no active session row — allowing valid refresh JWT (re-login if this persists)",
+          );
+        }
+
+        try {
+          const user = await fetchUserWithShed(decoded.userId);
+          if (!user) {
+            return res
+              .status(401)
+              .json({ success: false, error: "User not found" });
+          }
+
+          if (user.STATUS !== "ACTIVE") {
+            return res.status(403).json({
+              success: false,
+              error: "Account not active. Please login again.",
+            });
+          }
+
+          const newAccessToken = jwt.sign(
+            buildPayload(user),
+            process.env.JWT_ACCESS_SECRET,
+            { expiresIn: process.env.JWT_ACCESS_EXPIRY },
+          );
+
+          if (hasSession) {
+            connection.execute({
+              sqlText: `
+                UPDATE MERLAFARMS.APP_TRANSACTION.USER_SESSIONS
+                SET LAST_ACTIVITY = CURRENT_TIMESTAMP
+                WHERE REFRESH_TOKEN = ?
+              `,
+              binds: [token],
+              complete: () => {},
+            });
+          } else {
+            try {
+              await storeSession(
+                decoded.userId,
+                token,
+                "UNKNOWN",
+                "Mobile App",
+              );
+            } catch (sessErr) {
+              console.error("Refresh session re-store error:", sessErr.message);
+            }
+          }
+
+          return res.json({ success: true, accessToken: newAccessToken });
+        } catch (fetchErr) {
+          return res
+            .status(500)
+            .json({ success: false, error: fetchErr.message });
+        }
+      },
+    });
+  } catch (err) {
+    return res.status(401).json({
+      success: false,
+      error: "Invalid refresh token. Please login again.",
+    });
+  }
+};
+
+// ─────────────────────────────────────────────────────
+// 5. RESEND OTP
+// ─────────────────────────────────────────────────────
+const resendOTP = async (req, res) => {
+  const { userId, otpType } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ success: false, error: "userId required" });
+  }
+
   connection.execute({
     sqlText: `
-      SELECT USER_EMAIL, USER_CONTACT_NO, STATUS
+      SELECT USER_EMAIL, USER_CONTACT_NO
       FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS
-      WHERE USER_EMAIL = ? OR USER_CONTACT_NO = ?
-      LIMIT 1
+      WHERE USERID = ?
     `,
-    binds: [identifier, identifier],
+    binds: [userId],
     complete: async (err, stmt, rows) => {
       if (err || !rows || rows.length === 0) {
-        return res.status(404).json({ success: false, error: 'User not found' });
+        return res
+          .status(404)
+          .json({ success: false, error: "User not found" });
       }
 
       const user = rows[0];
-      const otp  = generateOTP();
-      const key  = user.USER_EMAIL || user.USER_CONTACT_NO;
+      const otp = generateOTP();
+      const type = otpType || "LOGIN";
 
-      otpStore[key] = {
-        ...otpStore[key],
-        otp,
-        expires: Date.now() + (parseInt(process.env.OTP_EXPIRY_MINS) * 60 * 1000),
-      };
+      console.log(`RESEND OTP for ${user.USER_EMAIL}: ${otp}`);
 
-      if (!isOtpBypassEnabled()) {
-        console.log(`Resend OTP for ${key}: ${otp}`);
-      }
-
-      if (user.USER_EMAIL) {
-        try {
-          await sendOTPEmail(user.USER_EMAIL, otp, 'Login');
-        } catch (e) {
-          console.error('Resend email error:', e.message);
+      try {
+        // Only store if bypass is off
+        if (!isOtpBypassEnabled()) {
+          await storeOTP(userId, otp, type);
         }
-      }
 
-      res.json({ success: true, message: `OTP resent to ${key}` });
+        await sendOTPEmail(
+          user.USER_EMAIL,
+          otp,
+          type === "LOGIN" ? "Login Verification" : "Password Reset",
+        );
+
+        return res.json({
+          success: true,
+          message: `New OTP sent to ${user.USER_EMAIL || user.USER_CONTACT_NO}`,
+        });
+      } catch (e) {
+        console.error("Resend OTP error:", e.message);
+        return res
+          .status(500)
+          .json({ success: false, error: "Failed to resend OTP" });
+      }
     },
   });
 };
 
 // ─────────────────────────────────────────────────────
-// 5. FORGOT PASSWORD — send OTP
+// 6. FORGOT PASSWORD
 // ─────────────────────────────────────────────────────
 const forgotPassword = async (req, res) => {
   const { identifier } = req.body;
 
   if (!identifier) {
-    return res.status(400).json({ success: false, error: 'Email or phone required' });
+    return res
+      .status(400)
+      .json({ success: false, error: "Email or phone required" });
   }
 
   connection.execute({
@@ -463,119 +676,169 @@ const forgotPassword = async (req, res) => {
       if (err || !rows || rows.length === 0) {
         return res.status(404).json({
           success: false,
-          error: 'No account found with this email or phone.',
+          error: "No account found with this email or phone.",
         });
       }
 
       const user = rows[0];
-      const otp  = generateOTP();
-      const key  = user.USER_EMAIL || user.USER_CONTACT_NO;
+      const otp = generateOTP();
 
-      otpStore[key] = {
-        otp,
-        userid:  user.USERID,
-        email:   user.USER_EMAIL,
-        contact: user.USER_CONTACT_NO,
-        purpose: 'forgot',
-        expires: Date.now() + (parseInt(process.env.OTP_EXPIRY_MINS) * 60 * 1000),
-      };
+      console.log(`FORGOT PASSWORD OTP for ${user.USER_EMAIL}: ${otp}`);
 
-      if (!isOtpBypassEnabled()) {
-        console.log(`Forgot Password OTP for ${key}: ${otp}`);
-      }
-
-      if (user.USER_EMAIL) {
-        try {
-          await sendOTPEmail(user.USER_EMAIL, otp, 'Password Reset');
-        } catch (e) {
-          console.error('Forgot password email error:', e.message);
+      try {
+        if (!isOtpBypassEnabled()) {
+          await storeOTP(user.USERID, otp, "FORGOT_PASSWORD");
         }
-      }
 
-      res.json({
-        success:    true,
-        message:    `Password reset OTP sent to ${key}`,
-        identifier: key,
-      });
+        await sendOTPEmail(user.USER_EMAIL, otp, "Password Reset");
+
+        return res.json({
+          success: true,
+          message: isOtpBypassEnabled()
+            ? `Dev mode: use OTP ${getOtpBypassCode()}`
+            : `OTP sent to ${user.USER_EMAIL || user.USER_CONTACT_NO}`,
+          userId: user.USERID,
+          identifier: user.USER_EMAIL || user.USER_CONTACT_NO,
+        });
+      } catch (otpErr) {
+        console.error("Forgot password error:", otpErr.message);
+        return res
+          .status(500)
+          .json({ success: false, error: "Failed to generate OTP" });
+      }
     },
   });
 };
 
 // ─────────────────────────────────────────────────────
-// 6. VERIFY FORGOT PASSWORD OTP + RESET PASSWORD
+// 7. VERIFY FORGOT PASSWORD OTP
+// ─────────────────────────────────────────────────────
+const verifyForgotOTP = async (req, res) => {
+  const { userId, otp } = req.body;
+
+  if (!userId || !otp) {
+    return res
+      .status(400)
+      .json({ success: false, error: "userId and OTP required" });
+  }
+
+  try {
+    if (!isBypassOtp(otp)) {
+      const otpRecord = await verifyOTPFromDB(userId, otp, "FORGOT_PASSWORD");
+      if (!otpRecord) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Invalid or expired OTP." });
+      }
+    } else {
+      console.log(`[OTP BYPASS] Forgot password verified for user: ${userId}`);
+    }
+
+    const resetToken = jwt.sign(
+      { userId, purpose: "password_reset" },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: "10m" },
+    );
+
+    return res.json({
+      success: true,
+      message: "OTP verified. You can now reset your password.",
+      resetToken,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────
+// 8. RESET PASSWORD
 // ─────────────────────────────────────────────────────
 const resetPassword = async (req, res) => {
-  const { identifier, otp, new_password } = req.body;
+  const { resetToken, new_password } = req.body;
 
-  if (!identifier || !otp || !new_password) {
+  if (!resetToken || !new_password) {
     return res.status(400).json({
       success: false,
-      error: 'Identifier, OTP and new password are required',
+      error: "Reset token and new password are required",
     });
   }
 
-  const updatePassword = async (userid) => {
-    try {
-      const salt          = await bcrypt.genSalt(10);
-      const password_hash = await bcrypt.hash(new_password, salt);
+  try {
+    const decoded = jwt.verify(resetToken, process.env.JWT_ACCESS_SECRET);
 
-      connection.execute({
-        sqlText: `
-          UPDATE MERLAFARMS.APP_TRANSACTION.FARM_USERS
-          SET PASSWORD_HASH = ?
-          WHERE USERID = ?
-        `,
-        binds: [password_hash, userid],
-        complete: (err) => {
-          if (err) {
-            return res.status(500).json({ success: false, error: err.message });
-          }
-
-          delete otpStore[identifier];
-
-          res.json({
-            success: true,
-            message: 'Password reset successfully. Please login.',
-          });
-        },
-      });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+    if (decoded.purpose !== "password_reset") {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid reset token" });
     }
-  };
 
-  if (isBypassOtp(otp)) {
-    return fetchUserByIdentifier(identifier, (err, user) => {
-      if (err || !user) {
-        return res.status(400).json({ success: false, error: 'User not found' });
-      }
-      updatePassword(user.userid);
+    if (new_password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: "Password must be at least 6 characters",
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(new_password, salt);
+
+    connection.execute({
+      sqlText: `
+        UPDATE MERLAFARMS.APP_TRANSACTION.FARM_USERS
+        SET PASSWORD_HASH = ? WHERE USERID = ?
+      `,
+      binds: [password_hash, decoded.userId],
+      complete: (err) => {
+        if (err)
+          return res.status(500).json({ success: false, error: err.message });
+        return res.json({
+          success: true,
+          message: "Password reset successfully. Please login.",
+        });
+      },
+    });
+  } catch (err) {
+    return res.status(400).json({
+      success: false,
+      error: "Reset token expired. Please start over.",
     });
   }
+};
 
-  const stored = otpStore[identifier];
+// ─────────────────────────────────────────────────────
+// 9. LOGOUT
+// ─────────────────────────────────────────────────────
+const logout = (req, res) => {
+  const { refreshToken: token } = req.body;
 
-  if (!stored) {
-    return res.status(400).json({ success: false, error: 'OTP not found' });
+  if (!token) {
+    return res
+      .status(400)
+      .json({ success: false, error: "Refresh token required" });
   }
 
-  if (Date.now() > stored.expires) {
-    delete otpStore[identifier];
-    return res.status(400).json({ success: false, error: 'OTP has expired' });
-  }
-
-  if (stored.otp !== otp) {
-    return res.status(400).json({ success: false, error: 'Invalid OTP' });
-  }
-
-  updatePassword(stored.userid);
+  connection.execute({
+    sqlText: `
+      UPDATE MERLAFARMS.APP_TRANSACTION.USER_SESSIONS
+      SET IS_ACTIVE = FALSE WHERE REFRESH_TOKEN = ?
+    `,
+    binds: [token],
+    complete: (err) => {
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
+      return res.json({ success: true, message: "Logged out successfully" });
+    },
+  });
 };
 
 module.exports = {
   signUp,
   login,
-  verifyOTP,
+  verifyLoginOTP,
+  refreshToken,
   resendOTP,
   forgotPassword,
+  verifyForgotOTP,
   resetPassword,
+  logout,
 };

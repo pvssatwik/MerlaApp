@@ -1,12 +1,17 @@
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, StatusBar, Animated } from "react-native";
+import { useAuth } from "../../context/AuthContext";
 
-const SplashScreen = ({ navigation }: any) => {
+type Props = {
+  navigation?: any;
+};
+
+const SplashScreen = ({ navigation }: Props) => {
+  const { isLoading, isAuthenticated } = useAuth();
   const fadeAnim = new Animated.Value(0);
   const scaleAnim = new Animated.Value(0.8);
 
   useEffect(() => {
-    // Animate logo in
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -19,14 +24,18 @@ const SplashScreen = ({ navigation }: any) => {
         useNativeDriver: true,
       }),
     ]).start();
+  }, []);
 
-    // Navigate to Login after 2.5s
+  // When used inside stack after auth check (optional navigation)
+  useEffect(() => {
+    if (!navigation || isLoading) return;
+
     const timer = setTimeout(() => {
-      navigation.replace("Login");
-    }, 2500);
+      navigation.replace(isAuthenticated ? "Home" : "Login");
+    }, 1200);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [navigation, isLoading, isAuthenticated]);
 
   return (
     <View style={styles.container}>
