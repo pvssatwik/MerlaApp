@@ -10,6 +10,9 @@ import {
 } from "react-native";
 import { FORMS } from "../config/forms";
 import SidebarMenu from "../components/sideBarMenu";
+import { useAuth } from "../context/AuthContext";
+import { logout } from "../services/authService";
+import { resetToLogin } from "../navigation/rootNavigation";
 
 // ── Greeting ──────────────────────────────────────────────
 const getGreeting = () => {
@@ -107,10 +110,31 @@ const QUICK_ACTIONS = [
   { label: "Egg Sale", api: "eggSaleSummary", icon: "💰" },
 ];
 
+const isAdminRole = (role: string) => {
+  const adminRoles = ["SUPER_ADMIN", "SUPERADMIN", "superadmin"];
+  return adminRoles.includes(role?.toUpperCase()) || role === "1";
+};
+
+const getRoleDisplayName = (role: string) => {
+  const names: Record<string, string> = {
+    SUPER_ADMIN: "⚙️ Super Admin",
+    SUPERADMIN: "⚙️ Super Admin",
+    ADMIN: "👑 Admin",
+    INCHARGE: "🏢 Incharge",
+    SUPERVISOR: "👷 Supervisor",
+    EGG_GODOWN_INCHARGE: "🥚 Egg Incharge",
+    FEED_GODOWN_INCHARGE: "🌾 Feed Incharge",
+    "1": "⚙️ Super Admin",
+  };
+
+  return names[role] || `Role: ${role}`;
+};
+
 // ── Main component ────────────────────────────────────────
 const HomeScreen = ({ navigation }: any) => {
   const greeting = getGreeting();
   const [sidebarVisible, setSidebarVisible] = useState(false);
+  const { user, signOut } = useAuth();
 
   const navigateToForm = (api: string) => {
     const form = FORMS.find((f: any) => f.api === api);
@@ -120,6 +144,16 @@ const HomeScreen = ({ navigation }: any) => {
         fields: form.fields,
         api: form.api,
       });
+    }
+  };
+  const handleLogout = async () => {
+    try {
+      await logout();
+      await signOut();
+
+      resetToLogin();
+    } catch (error) {
+      console.log("Logout error:", error);
     }
   };
 
@@ -150,14 +184,30 @@ const HomeScreen = ({ navigation }: any) => {
           </TouchableOpacity>
 
           <View style={styles.greetingBox}>
-            <Text style={styles.greeting}>{greeting}, Admin!</Text>
+            <Text style={styles.greeting}>
+              {greeting}, {user?.firstname || "Admin"}!
+            </Text>
+
             <Text style={styles.greetingSubtitle}>
-              Here's what's happening today
+              {getRoleDisplayName(user?.role || "")}
             </Text>
           </View>
 
+          {/* SUPER ADMIN BUTTON */}
+          {isAdminRole(user?.role || "") && (
+            <TouchableOpacity
+              style={styles.adminBtn}
+              onPress={() => navigation.navigate("SuperAdmin")}
+            >
+              <Text style={styles.adminBtnText}>⚙️</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* AVATAR */}
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>A</Text>
+            <Text style={styles.avatarText}>
+              {user?.firstname?.[0]?.toUpperCase() || "A"}
+            </Text>
           </View>
         </View>
 
@@ -173,6 +223,23 @@ const HomeScreen = ({ navigation }: any) => {
             })}
           </Text>
         </View>
+        {isAdminRole(user?.role || "") && (
+          <TouchableOpacity
+            style={styles.adminBanner}
+            onPress={() => navigation.navigate("SuperAdmin")}
+          >
+            <Text style={styles.adminBannerIcon}>👑</Text>
+
+            <View style={styles.adminBannerText}>
+              <Text style={styles.adminBannerTitle}>Admin Panel</Text>
+              <Text style={styles.adminBannerSubtitle}>
+                Manage user requests, approve accounts
+              </Text>
+            </View>
+
+            <Text style={styles.adminBannerArrow}>→</Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── Summary Cards ── */}
         <View style={styles.sectionRow}>
@@ -257,6 +324,8 @@ const HomeScreen = ({ navigation }: any) => {
         visible={sidebarVisible}
         onClose={() => setSidebarVisible(false)}
         navigation={navigation}
+        userRole={user?.role}
+        onLogout={handleLogout}
       />
     </View>
   );
@@ -306,6 +375,20 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 
+  adminBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+
+  adminBtnText: {
+    fontSize: 18,
+  },
+
   // ── Date strip ──
   dateStrip: {
     backgroundColor: "#163060",
@@ -325,6 +408,43 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 16, fontWeight: "700", color: "#1e3a5f" },
   sectionHint: { fontSize: 12, color: "#9ca3af" },
+
+  adminBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1e3a5f",
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 14,
+    padding: 14,
+    gap: 12,
+    elevation: 3,
+  },
+
+  adminBannerIcon: {
+    fontSize: 28,
+  },
+
+  adminBannerText: {
+    flex: 1,
+  },
+
+  adminBannerTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#fff",
+  },
+
+  adminBannerSubtitle: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.65)",
+    marginTop: 2,
+  },
+
+  adminBannerArrow: {
+    fontSize: 18,
+    color: "rgba(255,255,255,0.6)",
+  },
 
   // ── Summary cards ──
   cardsGrid: {

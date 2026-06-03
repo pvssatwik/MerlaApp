@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "create-superadmin": "node scripts/createSuperAdmin.js",
+    "approve-user": "node scripts/approveUser.js"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +19,7 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^8.0.8",
-    "snowflake-sdk": "^2.4.0"
+    "snowflake-sdk": "^2.4.0",
+    "uuid": "^14.0.0"
   }
 }

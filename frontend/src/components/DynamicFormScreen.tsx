@@ -26,7 +26,8 @@ import {
   fetchTrips,
 } from "../services/dropDownService";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { API_BASE_URL, API_HEADERS } from "../config/api";
+import { authPost } from "../config/api";
+import { useAuth } from "../context/AuthContext";
 
 // ─── API Route Mapping ────────────────────────────────────
 const API_ROUTES: Record<string, string> = {
@@ -70,6 +71,7 @@ const fetchDropdownData = async (
 // ─── Main Screen ──────────────────────────────────────────
 const DynamicFormScreen = ({ route, navigation }: any) => {
   const { title, fields, api } = route.params;
+  const { user } = useAuth();
 
   const [form, setForm] = useState<any>({});
   const [showDate, setShowDate] = useState<any>({});
@@ -89,7 +91,6 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
     const loadDropdowns = async () => {
       setLoadingDropdowns(true);
       try {
-        console.log("API_BASE_URL:", API_BASE_URL);
         const results: Record<string, any[]> = {};
         for (const field of fields) {
           if (field.type === "dropdown_api" && !field.dependsOn) {
@@ -163,7 +164,7 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
       }
 
       formattedForm["farm_name"] = "MERLA_FARMS";
-      formattedForm["who_created"] = "APP_USER";
+      formattedForm["who_created"] = user?.userId || "APP_USER";
 
       const endpoint = API_ROUTES[api];
       if (!endpoint) {
@@ -171,16 +172,7 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
         return;
       }
 
-      console.log("POST →", `${API_BASE_URL}${endpoint}`);
-      console.log("Body →", formattedForm);
-
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: "POST",
-        headers: API_HEADERS,
-        body: JSON.stringify(formattedForm),
-      });
-
-      const result = await response.json();
+      const result = await authPost(endpoint, formattedForm);
 
       if (result.success) {
         Alert.alert("Success ✅", result.message || "Saved successfully!");
@@ -191,10 +183,11 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
       }
     } catch (error: any) {
       console.error(error);
-      Alert.alert(
-        "Error ❌",
-        "Could not connect to server.\nMake sure backend is running.",
-      );
+      const msg =
+        error.message === "Session expired. Please login again."
+          ? error.message
+          : "Could not connect to server.\nMake sure backend is running.";
+      Alert.alert("Error ❌", msg);
     } finally {
       setLoading(false);
     }

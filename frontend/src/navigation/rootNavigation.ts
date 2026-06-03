@@ -1,0 +1,21 @@
+import { createNavigationContainerRef } from "@react-navigation/native";
+
+export const navigationRef = createNavigationContainerRef();
+
+export const resetToLogin = () => {
+  if (navigationRef.isReady()) {
+    navigationRef.reset({
+      index: 0,
+      routes: [{ name: "Login" as never }],
+    });
+  }
+};
+
+export const resetToHome = () => {
+  if (navigationRef.isReady()) {
+    navigationRef.reset({
+      index: 0,
+      routes: [{ name: "Home" as never }],
+    });
+  }
+};

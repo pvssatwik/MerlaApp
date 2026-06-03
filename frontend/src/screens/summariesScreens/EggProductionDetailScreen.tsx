@@ -12,7 +12,7 @@ import {
   FlatList,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { API_BASE_URL, API_HEADERS } from "../../config/api";
+import { authGet } from "../../config/api";
 
 // ── Filter options ────────────────────────────────────────
 const FILTERS = [
@@ -51,22 +51,16 @@ const EggProductionDetailScreen = ({ navigation }: any) => {
   const fetchData = async (selectedFilter = filter) => {
     setLoading(true);
     try {
-      let url = `${API_BASE_URL}/api/transactions/egg-production-summary?filter=${selectedFilter}`;
+      let url = `/api/transactions/egg-production-summary?filter=${selectedFilter}`;
 
       if (selectedFilter === "custom") {
         url += `&start_date=${formatDate(startDate)}&end_date=${formatDate(endDate)}`;
       }
 
-      const res = await fetch(url, { headers: API_HEADERS });
-      const result = await res.json();
-
-      if (result.success) {
-        setData(result.data);
-      } else {
-        Alert.alert("Error", result.error);
-      }
+      const result = await authGet(url);
+      setData(result.data);
     } catch (err: any) {
-      Alert.alert("Error", "Could not fetch data");
+      Alert.alert("Error", err.message || "Could not fetch data");
     } finally {
       setLoading(false);
     }

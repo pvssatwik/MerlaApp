@@ -11,22 +11,16 @@ import {
   Platform,
   Alert,
 } from "react-native";
-import { resendOTP, verifyLoginOTP } from "../../services/authService";
-import { useAuth } from "../../context/AuthContext";
-import { resetToHome } from "../../navigation/rootNavigation";
+import { verifyForgotOTP, resendOTP } from "../../services/authService";
 
-const OTPScreen = ({ navigation, route }: any) => {
-  const { userId, identifier, flow } = route.params;
+const VerifyForgotOTPScreen = ({ navigation, route }: any) => {
+  const { userId, identifier } = route.params;
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [timer, setTimer] = useState(30);
-  const { setAuthData } = useAuth();
-
-  // ── Fix: use TextInput type directly ─────────────────
   const inputs = useRef<(TextInput | null)[]>([]);
 
-  // Countdown timer
   useEffect(() => {
     if (timer <= 0) return;
     const interval = setInterval(() => setTimer((t) => t - 1), 1000);
@@ -37,10 +31,7 @@ const OTPScreen = ({ navigation, route }: any) => {
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-    // Auto focus next box
-    if (value && index < 5) {
-      inputs.current[index + 1]?.focus();
-    }
+    if (value && index < 5) inputs.current[index + 1]?.focus();
   };
 
   const handleKeyPress = (e: any, index: number) => {
@@ -51,31 +42,16 @@ const OTPScreen = ({ navigation, route }: any) => {
 
   const handleVerify = async () => {
     const otpCode = otp.join("");
-
     if (otpCode.length < 6) {
-      Alert.alert("Validation", "Please enter the 6-digit OTP");
+      Alert.alert("Validation", "Please enter 6-digit OTP");
       return;
     }
-
     setLoading(true);
-
     try {
-      if (flow === "login") {
-        const result = await verifyLoginOTP({
-          userId,
-          otp: otpCode,
-          device_name: "Mobile App",
-        });
-        console.log('Login user:', result.user);
-
-        // Save auth data
-        await setAuthData(result.user, result.accessToken, result.refreshToken);
-
-        resetToHome();
-      }
+      const result = await verifyForgotOTP({ userId, otp: otpCode });
+      navigation.navigate("ResetPassword", { resetToken: result.resetToken });
     } catch (error: any) {
       Alert.alert("Error ❌", error.message);
-
       setOtp(["", "", "", "", "", ""]);
     } finally {
       setLoading(false);
@@ -84,19 +60,11 @@ const OTPScreen = ({ navigation, route }: any) => {
 
   const handleResend = async () => {
     if (timer > 0) return;
-
     setResending(true);
-
     try {
-      await resendOTP({
-        userId,
-        otpType: "LOGIN",
-      });
-
+      await resendOTP({ userId, otpType: "FORGOT_PASSWORD" });
       setOtp(["", "", "", "", "", ""]);
-
       setTimer(30);
-
       Alert.alert("OTP Sent ✅", "New OTP sent to your email");
     } catch (error: any) {
       Alert.alert("Error ❌", error.message);
@@ -105,20 +73,14 @@ const OTPScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const maskedIdentifier = identifier?.includes("@")
-    ? identifier.replace(/(.{2})(.*)(@.*)/, "$1***$3")
-    : identifier?.replace(/(\d{3})(\d{4})(\d{3})/, "$1****$3");
-
   return (
     <View style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#1e3a5f" />
-
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <View style={styles.container}>
-          {/* ── Header ── */}
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backBtn}
@@ -127,24 +89,21 @@ const OTPScreen = ({ navigation, route }: any) => {
               <Text style={styles.backIcon}>←</Text>
             </TouchableOpacity>
             <Text style={styles.headerIcon}>🔐</Text>
-            <Text style={styles.headerTitle}>OTP Verification</Text>
+            <Text style={styles.headerTitle}>Verify OTP</Text>
             <Text style={styles.headerSubtitle}>
               Enter the 6-digit code sent to
             </Text>
-            <Text style={styles.identifier}>{maskedIdentifier}</Text>
+            <Text style={styles.identifier}>{identifier}</Text>
           </View>
 
-          {/* ── Card ── */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Enter OTP</Text>
 
-            {/* OTP Boxes */}
             <View style={styles.otpRow}>
               {otp.map((digit, index) => (
                 <TextInput
                   key={index}
                   ref={(ref) => {
-                    // ← fixed ref
                     inputs.current[index] = ref;
                   }}
                   style={[styles.otpBox, digit ? styles.otpBoxFilled : null]}
@@ -160,11 +119,10 @@ const OTPScreen = ({ navigation, route }: any) => {
               ))}
             </View>
 
-            {/* Timer / Resend */}
             <View style={styles.timerRow}>
               {timer > 0 ? (
                 <Text style={styles.timerText}>
-                  Resend OTP in{" "}
+                  Resend in{" "}
                   <Text style={styles.timerCount}>
                     00:{timer.toString().padStart(2, "0")}
                   </Text>
@@ -180,7 +138,6 @@ const OTPScreen = ({ navigation, route }: any) => {
               )}
             </View>
 
-            {/* Verify Button */}
             <TouchableOpacity
               style={[styles.verifyBtn, loading && styles.verifyBtnDisabled]}
               onPress={handleVerify}
@@ -192,15 +149,6 @@ const OTPScreen = ({ navigation, route }: any) => {
                 <Text style={styles.verifyBtnText}>Verify OTP ✓</Text>
               )}
             </TouchableOpacity>
-
-            {/* Info */}
-            <Text style={styles.infoText}>
-              {flow === "login"
-                ? "Didn't receive OTP? Check your spam folder or try resending."
-                : flow === "signup"
-                  ? "OTP sent to verify your email during registration."
-                  : "Enter the OTP sent to reset your password."}
-            </Text>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -208,13 +156,11 @@ const OTPScreen = ({ navigation, route }: any) => {
   );
 };
 
-export default OTPScreen;
+export default VerifyForgotOTPScreen;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#1e3a5f" },
   container: { flex: 1 },
-
-  // Header
   header: {
     alignItems: "center",
     paddingTop: Platform.OS === "android" ? 48 : 60,
@@ -240,18 +186,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   identifier: { fontSize: 15, fontWeight: "700", color: "#fff" },
-
-  // Card
   card: {
     backgroundColor: "#fff",
     marginHorizontal: 20,
     borderRadius: 20,
     padding: 24,
     elevation: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
   },
   cardTitle: {
     fontSize: 18,
@@ -260,8 +200,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 24,
   },
-
-  // OTP boxes
   otpRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -280,33 +218,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#f9fafb",
     textAlign: "center",
   },
-  otpBoxFilled: {
-    borderColor: "#1e3a5f",
-    backgroundColor: "#eff6ff",
-  },
-
-  // Timer
+  otpBoxFilled: { borderColor: "#1e3a5f", backgroundColor: "#eff6ff" },
   timerRow: { alignItems: "center", marginBottom: 24 },
   timerText: { fontSize: 13, color: "#6b7280" },
   timerCount: { color: "#1e3a5f", fontWeight: "700" },
   resendText: { fontSize: 14, color: "#2563eb", fontWeight: "700" },
-
-  // Verify button
   verifyBtn: {
     backgroundColor: "#1e3a5f",
     height: 50,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
   },
   verifyBtnDisabled: { backgroundColor: "#93c5fd" },
   verifyBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-
-  infoText: {
-    fontSize: 12,
-    color: "#9ca3af",
-    textAlign: "center",
-    lineHeight: 18,
-  },
 });

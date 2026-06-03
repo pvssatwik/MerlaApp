@@ -1,39 +1,48 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from "react";
 import {
-  View, Text, TouchableOpacity, StyleSheet,
-  Modal, ScrollView, Dimensions,
-  Platform, StatusBar, Animated,
-} from 'react-native';
-import { FORMS } from '../config/forms';
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  ScrollView,
+  Dimensions,
+  Platform,
+  StatusBar,
+  Animated,
+} from "react-native";
+import { FORMS } from "../config/forms";
 
-const { width, height } = Dimensions.get('window');
-const SIDEBAR_WIDTH     = width * 0.78;
+const { width, height } = Dimensions.get("window");
+const SIDEBAR_WIDTH = width * 0.78;
 
 const getFormIcon = (api: string) => {
   const icons: Record<string, string> = {
-    eggproduction:   '🥚',
-    birdLiveStock:   '🐔',
-    eggGodownStock:  '📦',
-    eggSaleSummary:  '💰',
-    feedConsumption: '🌾',
-    feedProduction:  '⚙️',
-    feedShedStock:   '🏪',
-    feedSupply:      '🚚',
-    rawMaterialStock:'📊',
+    eggproduction: "🥚",
+    birdLiveStock: "🐔",
+    eggGodownStock: "📦",
+    eggSaleSummary: "💰",
+    feedConsumption: "🌾",
+    feedProduction: "⚙️",
+    feedShedStock: "🏪",
+    feedSupply: "🚚",
+    rawMaterialStock: "📊",
   };
-  return icons[api] || '📝';
+  return icons[api] || "📝";
 };
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   navigation: any;
+  userRole?: string;
+  onLogout?: () => void;
 };
 
-const SidebarMenu = ({ visible, onClose, navigation }: Props) => {
-  const [expanded, setExpanded]   = useState(true);
-  const slideAnim                 = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
-  const fadeAnim                  = useRef(new Animated.Value(0)).current;
+const SidebarMenu = ({ visible, onClose, navigation, userRole, onLogout }: Props) => {
+  const [expanded, setExpanded] = useState(true);
+  const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const [modalVisible, setModalVisible] = useState(false);
 
   // ── Open animation ────────────────────────────────────
@@ -42,13 +51,13 @@ const SidebarMenu = ({ visible, onClose, navigation }: Props) => {
       setModalVisible(true);
       Animated.parallel([
         Animated.timing(slideAnim, {
-          toValue:         0,
-          duration:        280,
+          toValue: 0,
+          duration: 280,
           useNativeDriver: true,
         }),
         Animated.timing(fadeAnim, {
-          toValue:         1,
-          duration:        280,
+          toValue: 1,
+          duration: 280,
           useNativeDriver: true,
         }),
       ]).start();
@@ -56,13 +65,13 @@ const SidebarMenu = ({ visible, onClose, navigation }: Props) => {
       // ── Close animation ──────────────────────────────
       Animated.parallel([
         Animated.timing(slideAnim, {
-          toValue:         -SIDEBAR_WIDTH,
-          duration:        240,
+          toValue: -SIDEBAR_WIDTH,
+          duration: 240,
           useNativeDriver: true,
         }),
         Animated.timing(fadeAnim, {
-          toValue:         0,
-          duration:        240,
+          toValue: 0,
+          duration: 240,
           useNativeDriver: true,
         }),
       ]).start(() => {
@@ -74,10 +83,10 @@ const SidebarMenu = ({ visible, onClose, navigation }: Props) => {
   const navigateToForm = (form: any) => {
     onClose();
     setTimeout(() => {
-      navigation.navigate('DynamicForm', {
-        title:  form.title,
+      navigation.navigate("DynamicForm", {
+        title: form.title,
         fields: form.fields,
-        api:    form.api,
+        api: form.api,
       });
     }, 280);
   };
@@ -90,16 +99,15 @@ const SidebarMenu = ({ visible, onClose, navigation }: Props) => {
     <Modal
       visible={modalVisible}
       transparent={true}
-      animationType="none"          // ← none! we handle animation ourselves
+      animationType="none" // ← none! we handle animation ourselves
       statusBarTranslucent={true}
       onRequestClose={onClose}
     >
       <View style={styles.root}>
-
         {/* ── Backdrop with fade ── */}
         <Animated.View
           style={[styles.backdrop, { opacity: fadeAnim }]}
-          pointerEvents={visible ? 'auto' : 'none'}
+          pointerEvents={visible ? "auto" : "none"}
         >
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
@@ -110,10 +118,7 @@ const SidebarMenu = ({ visible, onClose, navigation }: Props) => {
 
         {/* ── Sidebar sliding from left ── */}
         <Animated.View
-          style={[
-            styles.sidebar,
-            { transform: [{ translateX: slideAnim }] },
-          ]}
+          style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}
         >
           {/* Header */}
           <View style={styles.header}>
@@ -137,6 +142,29 @@ const SidebarMenu = ({ visible, onClose, navigation }: Props) => {
               <Text style={styles.menuText}>Dashboard</Text>
             </TouchableOpacity>
 
+            {userRole === "SUPER_ADMIN" && (
+              <>
+                <TouchableOpacity
+                  style={[styles.menuItem, styles.adminMenuItem]}
+                  onPress={() => {
+                    onClose();
+                    setTimeout(() => {
+                      navigation.navigate("SuperAdmin");
+                    }, 280);
+                  }}
+                >
+                  <Text style={styles.menuIcon}>⚙️</Text>
+                  <Text style={styles.menuText}>Admin Panel</Text>
+
+                  <View style={styles.adminBadge}>
+                    <Text style={styles.adminBadgeText}>SA</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <View style={styles.divider} />
+              </>
+            )}
+
             {/* Divider */}
             <View style={styles.divider} />
 
@@ -146,30 +174,42 @@ const SidebarMenu = ({ visible, onClose, navigation }: Props) => {
               onPress={() => setExpanded(!expanded)}
             >
               <Text style={styles.sectionTitle}>📋 TRANSACTIONS</Text>
-              <Text style={styles.chevron}>{expanded ? '▲' : '▼'}</Text>
+              <Text style={styles.chevron}>{expanded ? "▲" : "▼"}</Text>
             </TouchableOpacity>
 
             {/* Form items */}
-            {expanded && FORMS.map((form, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.subMenuItem}
-                onPress={() => navigateToForm(form)}
-              >
-                <Text style={styles.subMenuIcon}>{getFormIcon(form.api)}</Text>
-                <Text style={styles.subMenuText}>{form.title}</Text>
-              </TouchableOpacity>
-            ))}
+            {expanded &&
+              FORMS.map((form, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.subMenuItem}
+                  onPress={() => navigateToForm(form)}
+                >
+                  <Text style={styles.subMenuIcon}>
+                    {getFormIcon(form.api)}
+                  </Text>
+                  <Text style={styles.subMenuText}>{form.title}</Text>
+                </TouchableOpacity>
+              ))}
 
             <View style={{ height: 60 }} />
           </ScrollView>
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Merla Farms © 2026</Text>
+            <TouchableOpacity
+              style={styles.logoutBtn}
+              onPress={() => {
+                onClose();
+                // Trigger logout from parent
+                if (onLogout) onLogout();
+              }}
+            >
+              <Text style={styles.logoutIcon}>🚪</Text>
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
           </View>
         </Animated.View>
-
       </View>
     </Modal>
   );
@@ -179,102 +219,136 @@ export default SidebarMenu;
 
 const styles = StyleSheet.create({
   root: {
-    flex:          1,
-    flexDirection: 'row',
+    flex: 1,
+    flexDirection: "row",
   },
 
   // ── Backdrop ──
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
 
   // ── Sidebar ──
   sidebar: {
-    position:        'absolute',
-    left:            0,
-    top:             0,
-    bottom:          0,
-    width:           SIDEBAR_WIDTH,
-    backgroundColor: '#1e3a5f',
-    paddingTop:      Platform.OS === 'android' ? StatusBar.currentHeight : 44,
-    elevation:       16,
-    shadowColor:     '#000',
-    shadowOpacity:   0.3,
-    shadowRadius:    12,
-    shadowOffset:    { width: 4, height: 0 },
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: SIDEBAR_WIDTH,
+    backgroundColor: "#1e3a5f",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 44,
+    elevation: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 4, height: 0 },
   },
 
   // ── Header ──
   header: {
-    flexDirection:     'row',
-    alignItems:        'flex-start',
-    padding:           20,
-    paddingTop:        16,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 20,
+    paddingTop: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: "rgba(255,255,255,0.1)",
   },
-  logo:     { fontSize: 18, fontWeight: '800', color: '#fff', marginBottom: 4 },
-  subtitle: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  logo: { fontSize: 18, fontWeight: "800", color: "#fff", marginBottom: 4 },
+  subtitle: { fontSize: 12, color: "rgba(255,255,255,0.6)" },
   closeBtn: { padding: 4, marginLeft: 8 },
-  closeText:{ color: '#fff', fontSize: 20, fontWeight: '300' },
+  closeText: { color: "#fff", fontSize: 20, fontWeight: "300" },
 
   scroll: { flex: 1, paddingTop: 8 },
 
+  adminMenuItem: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+
+  adminBadge: {
+    marginLeft: "auto",
+    backgroundColor: "#f59e0b",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+
+  adminBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+
   // ── Dashboard item ──
   menuItem: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    padding:           14,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
     paddingHorizontal: 20,
-    marginHorizontal:  8,
-    borderRadius:      10,
+    marginHorizontal: 8,
+    borderRadius: 10,
   },
   menuIcon: { fontSize: 18, marginRight: 12 },
-  menuText: { fontSize: 15, fontWeight: '600', color: '#fff' },
+  menuText: { fontSize: 15, fontWeight: "600", color: "#fff" },
 
   // ── Divider ──
   divider: {
-    height:           1,
-    backgroundColor:  'rgba(255,255,255,0.1)',
-    marginVertical:   8,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    marginVertical: 8,
     marginHorizontal: 16,
   },
 
   // ── Section toggle ──
   sectionHeader: {
-    flexDirection:     'row',
-    justifyContent:    'space-between',
-    alignItems:        'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical:   10,
+    paddingVertical: 10,
   },
   sectionTitle: {
-    fontSize:      11,
-    fontWeight:    '700',
-    color:         'rgba(255,255,255,0.5)',
+    fontSize: 11,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.5)",
     letterSpacing: 1.2,
   },
-  chevron: { fontSize: 10, color: 'rgba(255,255,255,0.5)' },
+  chevron: { fontSize: 10, color: "rgba(255,255,255,0.5)" },
 
   // ── Form items ──
   subMenuItem: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    paddingVertical:   12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    marginHorizontal:  8,
-    borderRadius:      10,
+    marginHorizontal: 8,
+    borderRadius: 10,
   },
   subMenuIcon: { fontSize: 16, marginRight: 12, width: 24 },
-  subMenuText: { fontSize: 14, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
+  subMenuText: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.85)",
+    fontWeight: "500",
+  },
 
   // ── Footer ──
   footer: {
-    padding:         16,
-    borderTopWidth:  1,
-    borderTopColor:  'rgba(255,255,255,0.1)',
-    alignItems:      'center',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
   },
-  footerText: { color: 'rgba(255,255,255,0.4)', fontSize: 12 },
+  footerText: { color: "rgba(255,255,255,0.4)", fontSize: 12 },
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 16,
+  },
+  logoutIcon: { fontSize: 18 },
+  logoutText: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });

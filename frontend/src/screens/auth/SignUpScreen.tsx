@@ -13,7 +13,7 @@ import {
   Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { signUp } from "../../services/authServices";
+import { signUp } from "../../services/authService";
 
 const SignUpScreen = ({ navigation }: any) => {
   const [form, setForm] = useState({

@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ActivityIndicator,
   TouchableOpacity, StatusBar, Platform, ScrollView, Alert,
 } from 'react-native';
-import { API_BASE_URL, API_HEADERS } from '../../config/api';
+import { authGet } from '../../config/api';
 
 const EggStockDetailScreen = ({ navigation }: any) => {
   const [data, setData]     = useState<any[]>([]);
@@ -12,12 +12,10 @@ const EggStockDetailScreen = ({ navigation }: any) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res    = await fetch(`${API_BASE_URL}/api/transactions/egg-stock-summary`, { headers: API_HEADERS });
-      const result = await res.json();
-      if (result.success) setData(result.data);
-      else Alert.alert('Error', result.error);
-    } catch {
-      Alert.alert('Error', 'Could not fetch data');
+      const result = await authGet('/api/transactions/egg-stock-summary');
+      setData(result.data);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not fetch data');
     } finally {
       setLoading(false);
     }
