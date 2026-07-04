@@ -1,7 +1,9 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { insertEggProduction } = require('../controllers/eggProductionController');
+const {
+  insertEggProduction,
+} = require("../controllers/eggProductionController");
 
-router.post('/insert', insertEggProduction);
+router.post("/insert", insertEggProduction);
 
 module.exports = router;

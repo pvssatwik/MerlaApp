@@ -66,7 +66,7 @@ const OTPScreen = ({ navigation, route }: any) => {
           otp: otpCode,
           device_name: "Mobile App",
         });
-        console.log('Login user:', result.user);
+        console.log("Login user:", result.user);
 
         // Save auth data
         await setAuthData(result.user, result.accessToken, result.refreshToken);
