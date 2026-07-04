@@ -379,12 +379,10 @@ const fetchEggProductionSummary = (req, res) => {
       break;
     case "custom":
       if (!start_date || !end_date) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: "start_date and end_date are required",
-          });
+        return res.status(400).json({
+          success: false,
+          error: "start_date and end_date are required",
+        });
       }
       dateCondition = `WHERE CAST(PRODUCTION_DATE AS DATE) BETWEEN '${start_date}' AND '${end_date}'`;
       break;
@@ -436,7 +434,8 @@ const fetchEggStockSummary = (req, res) => {
       FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_STOCK
     `,
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
     },
   });
@@ -462,7 +461,8 @@ const fetchEggSalesSummary = (req, res) => {
       ORDER BY SHED_NO ASC
     `,
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
     },
   });
@@ -472,23 +472,25 @@ const fetchEggSalesSummary = (req, res) => {
 const fetchCullBirdsSummary = (req, res) => {
   const { filter, start_date, end_date } = req.query;
 
-  let dateCondition = '';
+  let dateCondition = "";
   switch (filter) {
-    case 'today':
+    case "today":
       dateCondition = `WHERE REPORTING_DATE = CURRENT_DATE`;
       break;
-    case 'week':
+    case "week":
       dateCondition = `WHERE REPORTING_DATE >= DATEADD(day, -7, CURRENT_DATE)`;
       break;
-    case 'month':
+    case "month":
       dateCondition = `WHERE REPORTING_DATE >= DATEADD(month, -1, CURRENT_DATE)`;
       break;
-    case 'year':
+    case "year":
       dateCondition = `WHERE REPORTING_DATE >= DATEADD(year, -1, CURRENT_DATE)`;
       break;
-    case 'custom':
+    case "custom":
       if (!start_date || !end_date) {
-        return res.status(400).json({ success: false, error: 'start_date and end_date required' });
+        return res
+          .status(400)
+          .json({ success: false, error: "start_date and end_date required" });
       }
       dateCondition = `WHERE REPORTING_DATE BETWEEN '${start_date}' AND '${end_date}'`;
       break;
@@ -515,7 +517,8 @@ const fetchCullBirdsSummary = (req, res) => {
       ORDER BY REPORTING_DATE DESC, SHED_NO ASC
     `,
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
     },
   });
@@ -533,8 +536,95 @@ const fetchGodownSyloStock = (req, res) => {
       ORDER BY SYLO_NO ASC
     `,
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
+    },
+  });
+};
+
+// ── Shed Egg Production ───────────────────────────────
+const insertShedEggProduction = (req, res) => {
+  const {
+    farm_name,
+    shed_no,
+    flock_no,
+    production_date,
+    transaction_type,
+    egg_type,
+    egg_count,
+    batch_no,
+    comments,
+    who_created,
+  } = req.body;
+
+  const binds = [
+    safe(farm_name, "MERLA_FARMS"),
+    safe(shed_no),
+    safe(flock_no),
+    safe(production_date),
+    safe(transaction_type),
+    safe(egg_type),
+    safeNum(egg_count),
+    safe(batch_no),
+    safe(comments),
+    safe(who_created, "APP_USER"),
+  ];
+
+  console.log("ShedEggProduction binds:", binds);
+
+  connection.execute({
+    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_SHED_EGG_PRODUCTION(?,?,?,?,?,?,?,?,?,?)`,
+    binds,
+    complete: (err, stmt, rows) => {
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
+      res.json({
+        success: true,
+        message: rows[0]["SP_INS_DAILY_SHED_EGG_PRODUCTION"],
+      });
+    },
+  });
+};
+
+// ── Shed Feed Received ────────────────────────────────
+const insertShedFeedReceived = (req, res) => {
+  const {
+    farm_name,
+    shed_no,
+    flock_no,
+    reporting_date,
+    feed_type,
+    feed_used,
+    feed_balance,
+    comments,
+    who_created,
+  } = req.body;
+
+  const binds = [
+    safe(farm_name, "MERLA_FARMS"),
+    safe(shed_no),
+    safe(flock_no),
+    safe(reporting_date),
+    safe(feed_type),
+    safe(feed_used), // VARCHAR per SP definition
+    safeNum(feed_balance),
+    safe(comments),
+    safe(who_created, "APP_USER"),
+  ];
+
+  console.log("ShedFeedReceived binds:", binds);
+
+  connection.execute({
+    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_SHED_FEED_RECEIVED(?,?,?,?,?,?,?,?,?)`,
+    binds,
+    complete: (err, stmt, rows) => {
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
+      res.json({
+        success: true,
+        message: rows[0]["SP_INS_DAILY_SHED_FEED_RECEIVED"],
+      });
     },
   });
 };
@@ -554,4 +644,6 @@ module.exports = {
   fetchEggSalesSummary,
   fetchCullBirdsSummary,
   fetchGodownSyloStock,
+  insertShedEggProduction,
+  insertShedFeedReceived,
 };

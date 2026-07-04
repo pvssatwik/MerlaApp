@@ -1,18 +1,38 @@
-const connection = require('../db/snowflake');
+const connection = require("../db/snowflake");
 
 // ── Sheds ─────────────────────────────────────────────
 const getSheds = (req, res) => {
+  const userRole = req.user?.role;
+  const userSheds = req.user?.sheds || [];
+
+  // Roles that see ALL sheds
+  const fullAccessRoles = ["SUPER_ADMIN", "ADMIN", "INCHARGE", "1"];
+  const hasFullAccess = fullAccessRoles.includes(userRole);
+
+  let sqlText = `
+    SELECT SHED_NO, SHED_NAME
+    FROM MERLAFARMS.MASTER.SHED_MASTER
+    WHERE FARM_NAME = 'MERLA_FARMS'
+  `;
+  let binds = [];
+
+  // Restrict to assigned sheds for supervisors/incharges
+  if (!hasFullAccess && userSheds.length > 0 && !userSheds.includes("ALL")) {
+    const placeholders = userSheds.map(() => "?").join(",");
+    sqlText += ` AND SHED_NAME IN (${placeholders})`;
+    binds = userSheds;
+  }
+
+  sqlText += ` ORDER BY SHED_NAME`;
+
   connection.execute({
-    sqlText: `
-      SELECT SHED_NO, SHED_NAME 
-      FROM MERLAFARMS.MASTER.SHED_MASTER
-      WHERE FARM_NAME = 'MERLA FARMS'
-      ORDER BY SHED_NAME
-    `,
+    sqlText,
+    binds,
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
-    }
+    },
   });
 };
 
@@ -26,28 +46,54 @@ const getFlocks = (req, res) => {
       ORDER BY FLOCK_NAME
     `,
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
-    }
+    },
   });
 };
 
 // ── Flocks by Shed (cascading) ────────────────────────
 const getFlocksByShed = (req, res) => {
-  const { shedNo } = req.params;
+  const { shedName } = req.params;
+  const userRole = req.user?.role;
+  const userSheds = req.user?.sheds || [];
+
+  const fullAccessRoles = ["SUPER_ADMIN", "ADMIN", "INCHARGE", "1"];
+  const hasFullAccess = fullAccessRoles.includes(userRole);
+
+  if (
+    !hasFullAccess &&
+    !userSheds.includes("ALL") &&
+    !userSheds.includes(shedName)
+  ) {
+    return res.status(403).json({
+      success: false,
+      error: `You do not have access to shed: ${shedName}`,
+    });
+  }
+
   connection.execute({
     sqlText: `
       SELECT FLOCK_NO, FLOCK_NAME
       FROM MERLAFARMS.MASTER.FLOCK_MASTER
       WHERE FARM_NAME = 'MERLA_FARMS'
-      AND (CHICK_SHED_NAME = ? OR LAYER_SHED_NAME = ?)
+      AND (
+        CHICK_SHED_NAME = ?
+        OR LAYER_SHED_NAME = ?
+      )
       ORDER BY FLOCK_NAME
     `,
-    binds: [shedNo, shedNo],
+    binds: [shedName, shedName],
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err) {
+        console.error("getFlocksByShed error:", err.message);
+        return res.status(500).json({ success: false, error: err.message });
+      }
+      console.log(`Flocks for shed ${shedName}:`, rows?.length || 0);
+      console.log("Rows:", JSON.stringify(rows, null, 2));
       res.json({ success: true, data: rows });
-    }
+    },
   });
 };
 
@@ -61,9 +107,10 @@ const getFeeds = (req, res) => {
       ORDER BY FEED_TYPE
     `,
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
-    }
+    },
   });
 };
 
@@ -77,9 +124,10 @@ const getEggTypes = (req, res) => {
       ORDER BY EGG_TYPE
     `,
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
-    }
+    },
   });
 };
 
@@ -93,9 +141,10 @@ const getBirdLossTypes = (req, res) => {
       ORDER BY LOSS_TYPE
     `,
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
-    }
+    },
   });
 };
 
@@ -109,9 +158,10 @@ const getEggTransactionTypes = (req, res) => {
       ORDER BY TRANSACTION_TYPE
     `,
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
-    }
+    },
   });
 };
 
@@ -125,9 +175,10 @@ const getTrips = (req, res) => {
       ORDER BY TRIP_NO
     `,
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
-    }
+    },
   });
 };
 

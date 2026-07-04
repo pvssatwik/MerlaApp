@@ -69,53 +69,60 @@ const approveUser = (req, res) => {
     });
   }
 
-  // Roles that need a shed assigned
-  const shedRequiredRoles = [
-    "INCHARGE",
-    "SUPERVISOR",
-    "EGG_GODOWN_INCHARGE",
-    "FEED_GODOWN_INCHARGE",
-  ];
-
-  if (shedRequiredRoles.includes(role_id) && !shed_name) {
-    return res.status(400).json({
-      success: false,
-      error: `shed_name is required for role: ${role_id}`,
-    });
-  }
-
-  const shedToAssign = shed_name || "ALL"; // ADMIN gets ALL
-  const startDate =
-    assignment_start_date || new Date().toISOString().split("T")[0];
-  const endDate = assignment_end_date || "2099-12-31";
-
+  // First check the role name to determine if shed is required
   connection.execute({
     sqlText: `
-      CALL MERLAFARMS.APP_TRANSACTION.SP_UPDATE_USER_STATUS_AND_ASSIGN(?,?,?,?,?,?,?)
+      SELECT ROLE_NAME FROM MERLAFARMS.APP_TRANSACTION.FARM_ROLE_MASTER
+      WHERE ROLE_ID = ? AND FARM_NAME = 'MERLA_FARMS'
     `,
-    binds: [
-      userid,
-      "ACTIVE",
-      "MERLA_FARMS",
-      role_id,
-      shedToAssign,
-      startDate,
-      endDate,
-    ],
+    binds: [role_id],
     complete: (err, stmt, rows) => {
       if (err)
         return res.status(500).json({ success: false, error: err.message });
 
-      const spResult = rows[0]["SP_UPDATE_USER_STATUS_AND_ASSIGN"];
-      console.log("Approve user SP result:", spResult);
+      const roleName = rows?.[0]?.ROLE_NAME?.toUpperCase();
+      const isSupervisor = roleName === "SUPERVISOR";
 
-      if (spResult && spResult.toUpperCase().includes("ERROR")) {
-        return res.status(400).json({ success: false, error: spResult });
+      if (isSupervisor && !shed_name) {
+        return res.status(400).json({
+          success: false,
+          error: "shed_name is required for Supervisor role",
+        });
       }
 
-      res.json({
-        success: true,
-        message: `User ${userid} approved successfully with role ${role_id}`,
+      // Supervisors get assigned shed, everyone else gets NULL
+      const shedToAssign = isSupervisor ? shed_name : null;
+      const startDate =
+        assignment_start_date || new Date().toISOString().split("T")[0];
+      const endDate = assignment_end_date || "2099-12-31";
+
+      connection.execute({
+        sqlText: `CALL MERLAFARMS.APP_TRANSACTION.SP_UPDATE_USER_STATUS_AND_ASSIGN(?,?,?,?,?,?,?)`,
+        binds: [
+          userid,
+          "ACTIVE",
+          "MERLA_FARMS",
+          role_id,
+          shedToAssign,
+          startDate,
+          endDate,
+        ],
+        complete: (err2, stmt2, rows2) => {
+          if (err2)
+            return res
+              .status(500)
+              .json({ success: false, error: err2.message });
+
+          const spResult = rows2[0]["SP_UPDATE_USER_STATUS_AND_ASSIGN"];
+          if (spResult && spResult.toUpperCase().includes("ERROR")) {
+            return res.status(400).json({ success: false, error: spResult });
+          }
+
+          res.json({
+            success: true,
+            message: `User ${userid} approved with role ${roleName}${isSupervisor ? ` for shed ${shed_name}` : ""}`,
+          });
+        },
       });
     },
   });

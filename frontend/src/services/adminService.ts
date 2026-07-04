@@ -11,7 +11,7 @@ export const getSheds = () => authGet("/api/admin/sheds");
 export const approveUser = (data: {
   userid: string;
   role_id: string;
-  shed_name?: string;
+  shed_name?: string | null;
   assignment_start_date?: string;
   assignment_end_date?: string;
 }) =>

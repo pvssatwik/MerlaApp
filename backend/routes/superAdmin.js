@@ -24,9 +24,9 @@ router.get('/all-users',        getAllUsers);
 router.get('/roles',            getRoles);
 router.get('/sheds',            getSheds);
 
-// Only SUPERADMIN can approve/reject
-router.post('/approve-user',    checkRole('SUPERADMIN'), approveUser);
-router.post('/reject-user',     checkRole('SUPERADMIN'), rejectUser);
-router.post('/update-status',   checkRole('SUPERADMIN'), updateUserStatus);
+// Only SUPER_ADMIN can approve/reject
+router.post('/approve-user',    checkRole('SUPER_ADMIN'), approveUser);
+router.post('/reject-user',     checkRole('SUPER_ADMIN'), rejectUser);
+router.post('/update-status',   checkRole('SUPER_ADMIN'), updateUserStatus);
 
 module.exports = router;

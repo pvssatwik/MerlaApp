@@ -78,13 +78,10 @@ const SignUpScreen = ({ navigation }: any) => {
 
   const handleSignUp = async () => {
     if (!validate()) return;
-
     setLoading(true);
-
     try {
-      await signUp({
+      const result = await signUp({
         farm_name: "MERLA_FARMS",
-        userid: form.email.split("@")[0] + "_" + form.phone.slice(-4),
         user_firstname: form.firstName,
         user_lastname: form.lastName,
         user_dob: formatDateForApi(form.dob),
@@ -92,13 +89,15 @@ const SignUpScreen = ({ navigation }: any) => {
         user_contact_no: form.phone,
         password: form.password,
         gov_id: form.govId,
-        requested_role: "USER",
       });
-      
-      // Go directly to pending approval screen
-      navigation.replace("PendingApproval");
+
+      Alert.alert(
+        "Registration Successful! ✅",
+        `Your User ID is: ${result.userid}\n\nPlease save this ID — you'll need it for login.`,
+        [{ text: "OK", onPress: () => navigation.replace("PendingApproval") }],
+      );
     } catch (error: any) {
-      Alert.alert("Signup Failed ❌", error.message);
+      Alert.alert("Error ❌", error.message);
     } finally {
       setLoading(false);
     }
@@ -164,7 +163,9 @@ const SignUpScreen = ({ navigation }: any) => {
                 style={styles.input}
                 onPress={() => setShowDob(true)}
               >
-                <Text style={styles.dateText}>📅 {formatDateDisplay(form.dob)}</Text>
+                <Text style={styles.dateText}>
+                  📅 {formatDateDisplay(form.dob)}
+                </Text>
               </TouchableOpacity>
               {showDob && (
                 <DateTimePicker
