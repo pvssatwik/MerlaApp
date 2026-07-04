@@ -230,13 +230,56 @@ const buildPayload = (user) => ({
   sheds: user.SHED_NAME ? [user.SHED_NAME] : [],
 });
 
+const generateUserId = async (firstname, lastname) => {
+  const base =
+    (firstname?.[0] || "U").toUpperCase() +
+    (lastname || "USER").replace(/\s/g, "").substring(0, 5).toUpperCase();
+
+  return new Promise((resolve, reject) => {
+    connection.execute({
+      sqlText: `
+        SELECT USERID FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS
+        WHERE USERID LIKE ?
+        ORDER BY USERID DESC
+      `,
+      binds: [`${base}%`],
+      complete: (err, stmt, rows) => {
+        if (err) return reject(err);
+
+        if (!rows || rows.length === 0) {
+          return resolve(base); // no duplicates
+        }
+
+        // Find highest suffix number
+        let maxSuffix = 0;
+        rows.forEach((row) => {
+          const existing = row.USERID;
+          if (existing === base) {
+            maxSuffix = Math.max(maxSuffix, 0);
+          }
+          const match = existing.match(new RegExp(`^${base}(\\d+)$`));
+          if (match) {
+            maxSuffix = Math.max(maxSuffix, parseInt(match[1]));
+          }
+        });
+
+        const exactMatch = rows.some((r) => r.USERID === base);
+        if (!exactMatch && maxSuffix === 0) {
+          return resolve(base);
+        }
+
+        resolve(`${base}${maxSuffix + 1}`);
+      },
+    });
+  });
+};
 // ─────────────────────────────────────────────────────
 // 1. SIGN UP
 // ─────────────────────────────────────────────────────
+
 const signUp = async (req, res) => {
   const {
     farm_name,
-    userid,
     user_firstname,
     user_lastname,
     user_dob,
@@ -245,30 +288,42 @@ const signUp = async (req, res) => {
     password,
     gov_id,
   } = req.body;
+  // ⚠️ Note: userid removed from required fields — now auto-generated
 
-  if (!userid || !user_email || !user_contact_no || !password) {
+  if (
+    !user_firstname ||
+    !user_lastname ||
+    !user_email ||
+    !user_contact_no ||
+    !password
+  ) {
     return res.status(400).json({
       success: false,
-      error: "userid, email, contact number and password are required",
+      error:
+        "First name, last name, email, contact number and password are required",
     });
   }
 
   try {
+    const userid = await generateUserId(user_firstname, user_lastname);
+    console.log("Generated userid:", userid);
+
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
     connection.execute({
-      sqlText: `CALL MERLAFARMS.APP_TRANSACTION.SP_CREATE_FARM_USER_SQL(?,?,?,?,?,?,?,?,?)`,
+      sqlText: `CALL MERLAFARMS.APP_TRANSACTION.SP_CREATE_FARM_USER_SQL(?,?,?,?,?,?,?,?,?,?)`,
       binds: [
         farm_name || "MERLA_FARMS",
         userid,
-        user_firstname || "",
-        user_lastname || "",
+        user_firstname,
+        user_lastname,
         user_dob || null,
         user_email,
         user_contact_no,
         password_hash,
         gov_id || "",
+        "PENDING",
       ],
       complete: (err, stmt, rows) => {
         if (err) {
@@ -276,14 +331,14 @@ const signUp = async (req, res) => {
           return res.status(500).json({ success: false, error: err.message });
         }
         const spResult = rows[0]["SP_CREATE_FARM_USER_SQL"];
-        console.log("SignUp result:", spResult);
         if (spResult && spResult.toUpperCase().includes("ERROR")) {
           return res.status(400).json({ success: false, error: spResult });
         }
         return res.json({
           success: true,
-          message: "Registration successful. Awaiting admin approval.",
+          message: `Registration successful. Your User ID is ${userid}. Awaiting admin approval.`,
           status: "PENDING",
+          userid,
         });
       },
     });

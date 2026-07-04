@@ -55,7 +55,13 @@ type User = {
 type Role = { ROLE_ID: string; ROLE_NAME: string; ROLE_DESCRIPTION: string };
 type Shed = { SHED_NO: number; SHED_NAME: string };
 
-const SHED_REQUIRED_ROLES = ["2", "3", "4", "5"]; // adjust based on your role IDs
+const isShedRequiredRole = (roleId: string, roles: Role[]) => {
+  const role = roles.find((r) => r.ROLE_ID === roleId);
+
+  if (!role) return false;
+
+  return role.ROLE_NAME?.toUpperCase() === "SUPERVISOR";
+};
 
 const getRoleIcon = (roleName: string) => {
   const icons: Record<string, string> = {
@@ -132,9 +138,10 @@ const SuperAdminScreen = ({ navigation }: any) => {
       Alert.alert("Validation", "Please select a role");
       return;
     }
-    const needsShed = SHED_REQUIRED_ROLES.includes(selectedRole);
+    const needsShed = isShedRequiredRole(selectedRole, roles);
+
     if (needsShed && !selectedShed) {
-      Alert.alert("Validation", "Please select a shed for this role");
+      Alert.alert("Validation", "Please select a shed for Supervisor role");
       return;
     }
 
@@ -143,7 +150,9 @@ const SuperAdminScreen = ({ navigation }: any) => {
       await approveUser({
         userid: selectedUser!.USERID,
         role_id: selectedRole,
-        shed_name: selectedShed || undefined,
+        shed_name: isShedRequiredRole(selectedRole, roles)
+          ? selectedShed
+          : null,
       });
       Alert.alert("Success ✅", `${selectedUser!.USER_FIRSTNAME} approved!`);
       setApproveModal(false);
@@ -471,7 +480,10 @@ const SuperAdminScreen = ({ navigation }: any) => {
                     ]}
                     onPress={() => {
                       setSelectedRole(role.ROLE_ID);
-                      setSelectedShed("");
+
+                      if (!isShedRequiredRole(role.ROLE_ID, roles)) {
+                        setSelectedShed("");
+                      }
                     }}
                   >
                     <Text style={styles.roleIcon}>
@@ -501,7 +513,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
               </View>
 
               {/* Select Shed */}
-              {selectedRole && SHED_REQUIRED_ROLES.includes(selectedRole) && (
+              {selectedRole && isShedRequiredRole(selectedRole, roles) && (
                 <>
                   <Text style={styles.sectionLabel}>Select Shed *</Text>
                   <View style={styles.shedGrid}>

@@ -39,6 +39,8 @@ const API_ROUTES: Record<string, string> = {
   feedProduction: "/api/transactions/feed-production",
   feedShedStock: "/api/transactions/feed-shed-stock",
   feedSupply: "/api/transactions/feed-supply",
+  shedEggProduction: "/api/transactions/shed-egg-production",
+  shedFeedReceived: "/api/transactions/shed-feed-received",
 };
 
 // ─── Fetch dropdown data by source ───────────────────────
@@ -73,6 +75,17 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
   const { title, fields, api } = route.params;
   const { user } = useAuth();
 
+  const fullAccessRoles = ["SUPER_ADMIN", "ADMIN", "INCHARGE", "1"];
+
+  const hasFullAccess = fullAccessRoles.includes(user?.role || "");
+
+  const userSheds = user?.sheds || [];
+
+  const lockedShed =
+    !hasFullAccess && userSheds.length === 1 && userSheds[0] !== "ALL"
+      ? userSheds[0]
+      : null;
+
   const [form, setForm] = useState<any>({});
   const [showDate, setShowDate] = useState<any>({});
   const [dropdown, setDropdown] = useState<any>({
@@ -97,7 +110,10 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
             results[field.name] = await fetchDropdownData(field.apiSource);
           }
         }
-        setDropdownOptions(results);
+        setDropdownOptions((prev) => ({
+          ...prev,
+          ...results,
+        }));
       } catch (error) {
         console.error("Failed to load dropdowns:", error);
       } finally {
@@ -106,6 +122,48 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
     };
     loadDropdowns();
   }, []);
+
+  // ─── Auto-fill locked shed and load dependent dropdowns ───
+  useEffect(() => {
+    const loadLockedShedData = async () => {
+      if (!lockedShed) return;
+
+      // Set shed value
+      setForm((prev: any) => ({
+        ...prev,
+        shed_no: lockedShed,
+      }));
+
+      // Find all fields depending on shed_no
+      const dependentFields = fields.filter(
+        (f: any) => f.dependsOn === "shed_no",
+      );
+
+      for (const depField of dependentFields) {
+        try {
+          console.log(
+            `Loading ${depField.name} for locked shed: ${lockedShed}`,
+          );
+
+          const data = await fetchDropdownData(depField.apiSource, lockedShed);
+
+          console.log(
+            `Fetched ${depField.name}:`,
+            JSON.stringify(data, null, 2),
+          );
+
+          setDropdownOptions((prev) => ({
+            ...prev,
+            [depField.name]: data,
+          }));
+        } catch (err) {
+          console.error(`Failed loading ${depField.name}:`, err);
+        }
+      }
+    };
+
+    loadLockedShedData();
+  }, [lockedShed, fields]);
 
   // ─── Set value ────────────────────────────────────────
   const setValue = (key: string, value: any) =>
@@ -119,10 +177,25 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
       (f: any) => f.dependsOn === fieldName,
     );
 
+    console.log(
+      `Field changed: ${fieldName} = ${value}, dependents:`,
+      dependentFields.map((f: any) => f.name),
+    );
+
     for (const depField of dependentFields) {
       setForm((prev: any) => ({ ...prev, [depField.name]: "" }));
-      const data = await fetchDropdownData(depField.apiSource, value);
-      setDropdownOptions((prev) => ({ ...prev, [depField.name]: data }));
+      setDropdownOptions((prev) => ({ ...prev, [depField.name]: [] }));
+
+      try {
+        console.log(
+          `Loading ${depField.name} with apiSource=${depField.apiSource}, value=${value}`,
+        );
+        const data = await fetchDropdownData(depField.apiSource, value);
+        console.log(`Loaded ${depField.name}:`, JSON.stringify(data));
+        setDropdownOptions((prev) => ({ ...prev, [depField.name]: data }));
+      } catch (err) {
+        console.error(`Failed to load ${depField.name}:`, err);
+      }
     }
   };
 
@@ -143,8 +216,16 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
   // ─── Open dropdown modal ──────────────────────────────
   const openDropdown = (field: any) => {
     Keyboard.dismiss();
-    const options = dropdownOptions[field.name] || [];
-    setDropdown({ visible: true, field, apiOptions: options });
+
+    console.log("field.name =", field.name);
+    console.log("dropdownOptions =", dropdownOptions);
+    console.log("dropdownOptions[field.name] =", dropdownOptions[field.name]);
+
+    setDropdown({
+      visible: true,
+      field,
+      apiOptions: dropdownOptions[field.name] || [],
+    });
   };
 
   // ─── Submit ───────────────────────────────────────────
@@ -334,8 +415,16 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
                     field.dependsOn &&
                       !form[field.dependsOn] &&
                       styles.inputDisabled,
+                    field.name === "shed_no" &&
+                      lockedShed &&
+                      styles.inputLocked,
                   ]}
                   onPress={() => {
+                    // Don't allow opening if shed is locked
+                    if (field.name === "shed_no" && lockedShed) {
+                      return;
+                    }
+
                     if (field.dependsOn && !form[field.dependsOn]) {
                       Alert.alert(
                         "⚠️",
@@ -345,6 +434,7 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
                       );
                       return;
                     }
+
                     openDropdown(field);
                   }}
                 >
@@ -363,6 +453,9 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
                               .replace("_", " ")} first`
                           : "Select option ▼"}
                   </Text>
+                  {field.name === "shed_no" && lockedShed && (
+                    <Text style={styles.lockedIcon}>🔒</Text>
+                  )}
                 </TouchableOpacity>
               )}
             </View>
@@ -483,6 +576,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   inputDisabled: { backgroundColor: "#f3f4f6", borderColor: "#e5e7eb" },
+  inputLocked: {
+    backgroundColor: "#f3f4f6",
+    borderColor: "#d1d5db",
+  },
+
+  lockedIcon: {
+    position: "absolute",
+    right: 12,
+    top: 12,
+    fontSize: 14,
+  },
   dateText: { color: "#111827" },
   placeholder: { color: "#9ca3af" },
   button: {

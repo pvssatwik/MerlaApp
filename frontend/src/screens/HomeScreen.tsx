@@ -7,11 +7,12 @@ import {
   TouchableOpacity,
   StatusBar,
   Platform,
+  Alert,
 } from "react-native";
 import { FORMS } from "../config/forms";
 import SidebarMenu from "../components/sideBarMenu";
 import { useAuth } from "../context/AuthContext";
-import { logout } from "../services/authService";
+import { logout, logout as logoutAPI } from "../services/authService";
 import { resetToLogin } from "../navigation/rootNavigation";
 
 // ── Greeting ──────────────────────────────────────────────
@@ -108,6 +109,8 @@ const QUICK_ACTIONS = [
   { label: "Bird Stock", api: "birdLiveStock", icon: "🐔" },
   { label: "Feed Consumption", api: "feedConsumption", icon: "🌾" },
   { label: "Egg Sale", api: "eggSaleSummary", icon: "💰" },
+  { label: "Shed Egg Production", api: "shedEggProduction", icon: "🏠" },
+  { label: "Shed Feed Received", api: "shedFeedReceived", icon: "📥" },
 ];
 
 const isAdminRole = (role: string) => {
@@ -147,14 +150,26 @@ const HomeScreen = ({ navigation }: any) => {
     }
   };
   const handleLogout = async () => {
-    try {
-      await logout();
-      await signOut();
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await logoutAPI();
+          } catch (e) {
+            console.error("Logout error:", e);
+          }
 
-      resetToLogin();
-    } catch (error) {
-      console.log("Logout error:", error);
-    }
+          await signOut();
+          resetToLogin();
+        },
+      },
+    ]);
   };
 
   const handleCardPress = (card: any) => {
@@ -194,21 +209,11 @@ const HomeScreen = ({ navigation }: any) => {
           </View>
 
           {/* SUPER ADMIN BUTTON */}
-          {isAdminRole(user?.role || "") && (
-            <TouchableOpacity
-              style={styles.adminBtn}
-              onPress={() => navigation.navigate("SuperAdmin")}
-            >
-              <Text style={styles.adminBtnText}>⚙️</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* AVATAR */}
-          <View style={styles.avatar}>
+          <TouchableOpacity style={styles.avatar} onPress={handleLogout}>
             <Text style={styles.avatarText}>
-              {user?.firstname?.[0]?.toUpperCase() || "A"}
+              {user?.firstname?.[0]?.toUpperCase() || "U"}
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* ── Date strip ── */}

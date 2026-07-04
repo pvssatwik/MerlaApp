@@ -34,7 +34,6 @@ const post = async (url: string, body: any, token?: string) => {
 
 export const signUp = (data: {
   farm_name: string;
-  userid: string;
   user_firstname: string;
   user_lastname: string;
   user_dob: string;
