@@ -39,7 +39,13 @@ type Props = {
   onLogout?: () => void;
 };
 
-const SidebarMenu = ({ visible, onClose, navigation, userRole, onLogout }: Props) => {
+const SidebarMenu = ({
+  visible,
+  onClose,
+  navigation,
+  userRole,
+  onLogout,
+}: Props) => {
   const [expanded, setExpanded] = useState(true);
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;

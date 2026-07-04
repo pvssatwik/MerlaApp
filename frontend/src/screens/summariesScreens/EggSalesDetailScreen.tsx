@@ -1,31 +1,40 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, ActivityIndicator,
-  TouchableOpacity, StatusBar, Platform, FlatList, Alert,
-} from 'react-native';
-import { authGet } from '../../config/api';
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  StatusBar,
+  Platform,
+  FlatList,
+  Alert,
+} from "react-native";
+import { authGet } from "../../config/api";
 
 const EggSalesDetailScreen = ({ navigation }: any) => {
-  const [data, setData]       = useState<any[]>([]);
+  const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const result = await authGet('/api/transactions/egg-sales-summary');
+      const result = await authGet("/api/transactions/egg-sales-summary");
       setData(result.data);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Could not fetch data');
+      Alert.alert("Error", err.message || "Could not fetch data");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const totalEggs   = data.reduce((s, r) => s + (r.EGGS        || 0), 0);
-  const totalDamage = data.reduce((s, r) => s + (r.DAMAGED      || 0), 0);
-  const totalSales  = data.reduce((s, r) => s + (r.TOTAL        || 0), 0);
+  const totalEggs = data.reduce((s, r) => s + (r.EGGS || 0), 0);
+  const totalDamage = data.reduce((s, r) => s + (r.DAMAGED || 0), 0);
+  const totalSales = data.reduce((s, r) => s + (r.TOTAL || 0), 0);
 
   const renderRow = ({ item }: any) => (
     <View style={styles.card}>
@@ -42,7 +51,7 @@ const EggSalesDetailScreen = ({ navigation }: any) => {
         </View>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Damaged</Text>
-          <Text style={[styles.statValue, { color: '#dc2626' }]}>
+          <Text style={[styles.statValue, { color: "#dc2626" }]}>
             {item.DAMAGED?.toLocaleString()}
           </Text>
         </View>
@@ -52,17 +61,21 @@ const EggSalesDetailScreen = ({ navigation }: any) => {
         </View>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Medium</Text>
-          <Text style={styles.statValue}>{item.MEDIUM_EGGS?.toLocaleString()}</Text>
+          <Text style={styles.statValue}>
+            {item.MEDIUM_EGGS?.toLocaleString()}
+          </Text>
         </View>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Total</Text>
-          <Text style={[styles.statValue, { color: '#1e3a5f', fontWeight: '800' }]}>
+          <Text
+            style={[styles.statValue, { color: "#1e3a5f", fontWeight: "800" }]}
+          >
             {item.TOTAL?.toLocaleString()}
           </Text>
         </View>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Dmg%</Text>
-          <Text style={[styles.statValue, { color: '#dc2626' }]}>
+          <Text style={[styles.statValue, { color: "#dc2626" }]}>
             {item.DAMAGE_PCT?.toFixed(2)}%
           </Text>
         </View>
@@ -75,7 +88,10 @@ const EggSalesDetailScreen = ({ navigation }: any) => {
       <StatusBar barStyle="light-content" backgroundColor="#1e3a5f" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+        >
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Egg Sales Summary</Text>
@@ -91,7 +107,7 @@ const EggSalesDetailScreen = ({ navigation }: any) => {
         <View style={styles.totalDivider} />
         <View style={styles.totalItem}>
           <Text style={styles.totalLabel}>Damaged</Text>
-          <Text style={[styles.totalValue, { color: '#fca5a5' }]}>
+          <Text style={[styles.totalValue, { color: "#fca5a5" }]}>
             {totalDamage.toLocaleString()}
           </Text>
         </View>
@@ -132,27 +148,68 @@ const EggSalesDetailScreen = ({ navigation }: any) => {
 export default EggSalesDetailScreen;
 
 const styles = StyleSheet.create({
-  safe:          { flex: 1, backgroundColor: '#f3f4f6', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
-  header:        { backgroundColor: '#1e3a5f', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 14 },
-  backBtn:       { width: 40 },
-  backIcon:      { fontSize: 22, color: '#fff', fontWeight: '600' },
-  headerTitle:   { flex: 1, fontSize: 16, fontWeight: '700', color: '#fff', textAlign: 'center' },
-  totalsBar:     { flexDirection: 'row', backgroundColor: '#1e3a5f', padding: 12 },
-  totalItem:     { flex: 1, alignItems: 'center' },
-  totalLabel:    { fontSize: 10, color: 'rgba(255,255,255,0.6)', marginBottom: 2 },
-  totalValue:    { fontSize: 13, fontWeight: '800', color: '#fff' },
-  totalDivider:  { width: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginVertical: 4 },
-  list:          { padding: 12, paddingBottom: 40 },
-  centered:      { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-  emptyIcon:     { fontSize: 48, marginBottom: 12 },
-  emptyText:     { fontSize: 16, color: '#6b7280' },
-  card:          { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 10, elevation: 2 },
-  cardHeader:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  flockName:     { fontSize: 15, fontWeight: '700', color: '#1e3a5f' },
-  shedBadge:     { backgroundColor: '#dbeafe', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },
-  shedBadgeText: { fontSize: 12, fontWeight: '600', color: '#1e40af' },
-  statsRow:      { flexDirection: 'row', flexWrap: 'wrap' },
-  stat:          { width: '33%', alignItems: 'center', marginBottom: 8 },
-  statLabel:     { fontSize: 10, color: '#9ca3af', marginBottom: 2 },
-  statValue:     { fontSize: 13, fontWeight: '700', color: '#374151' },
+  safe: {
+    flex: 1,
+    backgroundColor: "#f3f4f6",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  },
+  header: {
+    backgroundColor: "#1e3a5f",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  backBtn: { width: 40 },
+  backIcon: { fontSize: 22, color: "#fff", fontWeight: "600" },
+  headerTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fff",
+    textAlign: "center",
+  },
+  totalsBar: { flexDirection: "row", backgroundColor: "#1e3a5f", padding: 12 },
+  totalItem: { flex: 1, alignItems: "center" },
+  totalLabel: { fontSize: 10, color: "rgba(255,255,255,0.6)", marginBottom: 2 },
+  totalValue: { fontSize: 13, fontWeight: "800", color: "#fff" },
+  totalDivider: {
+    width: 1,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    marginVertical: 4,
+  },
+  list: { padding: 12, paddingBottom: 40 },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+  },
+  emptyIcon: { fontSize: 48, marginBottom: 12 },
+  emptyText: { fontSize: 16, color: "#6b7280" },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  flockName: { fontSize: 15, fontWeight: "700", color: "#1e3a5f" },
+  shedBadge: {
+    backgroundColor: "#dbeafe",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  shedBadgeText: { fontSize: 12, fontWeight: "600", color: "#1e40af" },
+  statsRow: { flexDirection: "row", flexWrap: "wrap" },
+  stat: { width: "33%", alignItems: "center", marginBottom: 8 },
+  statLabel: { fontSize: 10, color: "#9ca3af", marginBottom: 2 },
+  statValue: { fontSize: 13, fontWeight: "700", color: "#374151" },
 });

@@ -8,8 +8,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/transactions", require("./routes/transactions"));
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/admin', require('./routes/superAdmin'));
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/admin", require("./routes/superAdmin"));
 
 app.get("/", (req, res) => {
   res.json({

@@ -14,8 +14,7 @@ export const approveUser = (data: {
   shed_name?: string | null;
   assignment_start_date?: string;
   assignment_end_date?: string;
-}) =>
-  authPost("/api/admin/approve-user", data as Record<string, unknown>);
+}) => authPost("/api/admin/approve-user", data as Record<string, unknown>);
 
 export const rejectUser = (userid: string) =>
   authPost("/api/admin/reject-user", { userid });
