@@ -121,16 +121,24 @@ const isAdminRole = (role: string) => {
 const getRoleDisplayName = (role: string) => {
   const names: Record<string, string> = {
     SUPER_ADMIN: "⚙️ Super Admin",
-    SUPERADMIN: "⚙️ Super Admin",
     ADMIN: "👑 Admin",
     INCHARGE: "🏢 Incharge",
-    SUPERVISOR: "👷 Supervisor",
-    EGG_GODOWN_INCHARGE: "🥚 Egg Incharge",
-    FEED_GODOWN_INCHARGE: "🌾 Feed Incharge",
+    EGG_GODOWN_INCHARGE: "🥚 Egg Godown Incharge",
+    FEED_GODOWN_INCHARGE: "🌾 Feed Godown Incharge",
+    SUPERVISORS: "👷 Supervisor",
+    EGG_GODOWN_SUPERVISOR: "🥚 Egg Godown Supervisor",
+    FEED_GODOWN_SUPERVISOR: "🌾 Feed Godown Supervisor",
+    // Numeric fallbacks
     "1": "⚙️ Super Admin",
+    "2": "👑 Admin",
+    "3": "🏢 Incharge",
+    "4": "🥚 Egg Godown Incharge",
+    "5": "🌾 Feed Godown Incharge",
+    "6": "👷 Supervisor",
+    "7": "🥚 Egg Godown Supervisor",
+    "8": "🌾 Feed Godown Supervisor",
   };
-
-  return names[role] || `Role: ${role}`;
+  return names[role] || `${role}`;
 };
 
 // ── Main component ────────────────────────────────────────

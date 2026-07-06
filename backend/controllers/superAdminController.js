@@ -17,7 +17,7 @@ const getPendingUsers = (req, res) => {
         USERID, FARM_NAME, USER_FIRSTNAME, USER_LASTNAME,
         USER_EMAIL, USER_CONTACT_NO, USER_DOB, STATUS
       FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS
-      WHERE STATUS IN ('PENDING', 'PREAPPROVED')
+      WHERE STATUS = 'PENDING'
       ORDER BY USERID
     `,
     complete: (err, stmt, rows) => {
@@ -35,13 +35,19 @@ const getAllUsers = (req, res) => {
       SELECT
         FU.USERID, FU.FARM_NAME, FU.USER_FIRSTNAME,
         FU.USER_LASTNAME, FU.USER_EMAIL, FU.USER_CONTACT_NO,
-        FU.STATUS, USA.ROLE_ID, USA.SHED_NAME,
+        FU.USER_DOB, FU.STATUS,
+        USA.ROLE_ID, RM.ROLE_NAME, USA.SHED_NAME,
         USA.ASSIGNMENT_START_DATE, USA.ASSIGNMENT_END_DATE
       FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS FU
       LEFT JOIN MERLAFARMS.APP_TRANSACTION.USER_SHED_ASSIGNMENT USA
         ON FU.USERID = USA.USERID
-        AND USA.ASSIGNMENT_END_DATE >= CURRENT_DATE
-      WHERE FU.USERID != 'SUPERADMIN_001'
+      LEFT JOIN MERLAFARMS.APP_TRANSACTION.FARM_ROLE_MASTER RM
+        ON CAST(USA.ROLE_ID AS VARCHAR) = CAST(RM.ROLE_ID AS VARCHAR)
+        AND FU.FARM_NAME = RM.FARM_NAME
+      WHERE FU.USERID NOT IN (
+        SELECT USERID FROM MERLAFARMS.APP_TRANSACTION.USER_SHED_ASSIGNMENT
+        WHERE ROLE_ID = 1
+      )
       ORDER BY FU.STATUS, FU.USERID
     `,
     complete: (err, stmt, rows) => {
@@ -63,66 +69,46 @@ const approveUser = (req, res) => {
   } = req.body;
 
   if (!userid || !role_id) {
-    return res.status(400).json({
-      success: false,
-      error: "userid and role_id are required",
-    });
+    return res
+      .status(400)
+      .json({ success: false, error: "userid and role_id are required" });
   }
 
-  // First check the role name to determine if shed is required
+  const SHED_REQUIRED = ["6", "7", "8"];
+  const needsShed = SHED_REQUIRED.includes(String(role_id));
+
+  if (needsShed && !shed_name) {
+    return res
+      .status(400)
+      .json({ success: false, error: "shed_name is required for this role" });
+  }
+
+  const shedToAssign = needsShed ? shed_name : null;
+  const startDate =
+    assignment_start_date || new Date().toISOString().split("T")[0];
+  const endDate = assignment_end_date || "2099-12-31";
+
   connection.execute({
-    sqlText: `
-      SELECT ROLE_NAME FROM MERLAFARMS.APP_TRANSACTION.FARM_ROLE_MASTER
-      WHERE ROLE_ID = ? AND FARM_NAME = 'MERLA_FARMS'
-    `,
-    binds: [role_id],
+    sqlText: `CALL MERLAFARMS.APP_TRANSACTION.SP_UPDATE_USER_STATUS_AND_ASSIGN(?,?,?,?,?,?,?)`,
+    binds: [
+      userid,
+      "ACTIVE",
+      "MERLA_FARMS",
+      role_id,
+      shedToAssign,
+      startDate,
+      endDate,
+    ],
     complete: (err, stmt, rows) => {
       if (err)
         return res.status(500).json({ success: false, error: err.message });
-
-      const roleName = rows?.[0]?.ROLE_NAME?.toUpperCase();
-      const isSupervisor = roleName === "SUPERVISOR";
-
-      if (isSupervisor && !shed_name) {
-        return res.status(400).json({
-          success: false,
-          error: "shed_name is required for Supervisor role",
-        });
+      const spResult = rows[0]["SP_UPDATE_USER_STATUS_AND_ASSIGN"];
+      if (spResult && spResult.toUpperCase().includes("ERROR")) {
+        return res.status(400).json({ success: false, error: spResult });
       }
-
-      // Supervisors get assigned shed, everyone else gets NULL
-      const shedToAssign = isSupervisor ? shed_name : null;
-      const startDate =
-        assignment_start_date || new Date().toISOString().split("T")[0];
-      const endDate = assignment_end_date || "2099-12-31";
-
-      connection.execute({
-        sqlText: `CALL MERLAFARMS.APP_TRANSACTION.SP_UPDATE_USER_STATUS_AND_ASSIGN(?,?,?,?,?,?,?)`,
-        binds: [
-          userid,
-          "ACTIVE",
-          "MERLA_FARMS",
-          role_id,
-          shedToAssign,
-          startDate,
-          endDate,
-        ],
-        complete: (err2, stmt2, rows2) => {
-          if (err2)
-            return res
-              .status(500)
-              .json({ success: false, error: err2.message });
-
-          const spResult = rows2[0]["SP_UPDATE_USER_STATUS_AND_ASSIGN"];
-          if (spResult && spResult.toUpperCase().includes("ERROR")) {
-            return res.status(400).json({ success: false, error: spResult });
-          }
-
-          res.json({
-            success: true,
-            message: `User ${userid} approved with role ${roleName}${isSupervisor ? ` for shed ${shed_name}` : ""}`,
-          });
-        },
+      res.json({
+        success: true,
+        message: `User ${userid} approved successfully`,
       });
     },
   });
@@ -208,8 +194,8 @@ const getSheds = (req, res) => {
     sqlText: `
       SELECT SHED_NO, SHED_NAME
       FROM MERLAFARMS.MASTER.SHED_MASTER
-      WHERE FARM_NAME = 'MERLA FARMS'
-      ORDER BY SHED_NAME
+      WHERE FARM_NAME = 'MERLA_FARMS'
+      ORDER BY SHED_NO ASC
     `,
     complete: (err, stmt, rows) => {
       if (err)
