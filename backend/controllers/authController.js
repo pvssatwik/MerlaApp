@@ -220,15 +220,18 @@ const fetchUserWithShed = (userId) => {
 };
 
 // ── Build JWT payload from user row ──────────────────
-const buildPayload = (user) => ({
-  userId: user.USERID,
-  email: user.USER_EMAIL,
-  farmName: user.FARM_NAME,
-  firstname: user.USER_FIRSTNAME,
-  lastname: user.USER_LASTNAME,
-  role: user.ROLE_NAME || user.ROLE_ID || "SUPERVISOR",
-  sheds: user.SHED_NAME ? [user.SHED_NAME] : [],
-});
+const buildPayload = (user) => {
+  const roleName = user.ROLE_NAME || String(user.ROLE_ID) || "SUPERVISOR";
+  return {
+    userId: user.USERID,
+    email: user.USER_EMAIL,
+    farmName: user.FARM_NAME,
+    firstname: user.USER_FIRSTNAME,
+    lastname: user.USER_LASTNAME,
+    role: roleName,
+    sheds: user.SHED_NAME ? [user.SHED_NAME] : [],
+  };
+};
 
 const generateUserId = async (firstname, lastname) => {
   const base =
@@ -312,7 +315,7 @@ const signUp = async (req, res) => {
     const password_hash = await bcrypt.hash(password, salt);
 
     connection.execute({
-      sqlText: `CALL MERLAFARMS.APP_TRANSACTION.SP_CREATE_FARM_USER_SQL(?,?,?,?,?,?,?,?,?,?)`,
+      sqlText: `CALL MERLAFARMS.APP_TRANSACTION.SP_CREATE_FARM_USER_SQL(?,?,?,?,?,?,?,?,?)`,
       binds: [
         farm_name || "MERLA_FARMS",
         userid,
@@ -323,7 +326,6 @@ const signUp = async (req, res) => {
         user_contact_no,
         password_hash,
         gov_id || "",
-        "PENDING",
       ],
       complete: (err, stmt, rows) => {
         if (err) {

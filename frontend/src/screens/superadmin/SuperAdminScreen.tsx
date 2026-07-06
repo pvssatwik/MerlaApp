@@ -38,6 +38,9 @@ const TABS = [
   { id: "all", label: "All Users", icon: "👥" },
 ];
 
+// Roles that REQUIRE shed assignment
+const SHED_REQUIRED_ROLE_IDS = ["6", "7", "8"]; // SUPERVISORS, EGG_GODOWN_SUPERVISOR, FEED_GODOWN_SUPERVISOR
+
 type User = {
   USERID: string;
   FARM_NAME: string;
@@ -55,22 +58,16 @@ type User = {
 type Role = { ROLE_ID: string; ROLE_NAME: string; ROLE_DESCRIPTION: string };
 type Shed = { SHED_NO: number; SHED_NAME: string };
 
-const isShedRequiredRole = (roleId: string, roles: Role[]) => {
-  const role = roles.find((r) => r.ROLE_ID === roleId);
-
-  if (!role) return false;
-
-  return role.ROLE_NAME?.toUpperCase() === "SUPERVISOR";
-};
-
 const getRoleIcon = (roleName: string) => {
   const icons: Record<string, string> = {
     SUPER_ADMIN: "👑",
-    ADMIN: "👑",
+    ADMIN: "🛡️",
     INCHARGE: "🏢",
     EGG_GODOWN_INCHARGE: "🥚",
     FEED_GODOWN_INCHARGE: "🌾",
-    SUPERVISOR: "👷",
+    SUPERVISORS: "👷",
+    EGG_GODOWN_SUPERVISOR: "🥚",
+    FEED_GODOWN_SUPERVISOR: "🌾",
   };
   return icons[roleName?.toUpperCase()] || "👤";
 };
@@ -91,6 +88,9 @@ const SuperAdminScreen = ({ navigation }: any) => {
   const [selectedRole, setSelectedRole] = useState("");
   const [selectedShed, setSelectedShed] = useState("");
   const [approving, setApproving] = useState(false);
+
+  const isShedRequired = (roleId: string) =>
+    SHED_REQUIRED_ROLE_IDS.includes(String(roleId));
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -113,7 +113,11 @@ const SuperAdminScreen = ({ navigation }: any) => {
   const loadRolesAndSheds = async () => {
     try {
       const [rolesRes, shedsRes] = await Promise.all([getRoles(), getSheds()]);
-      setRoles(rolesRes.data || []);
+      // Filter out SUPER_ADMIN from assignable roles
+      const assignableRoles = (rolesRes.data || []).filter(
+        (r: Role) => r.ROLE_NAME !== "SUPER_ADMIN",
+      );
+      setRoles(assignableRoles);
       setSheds(shedsRes.data || []);
     } catch (err) {
       console.error("Failed to load roles/sheds:", err);
@@ -125,8 +129,8 @@ const SuperAdminScreen = ({ navigation }: any) => {
     loadUsers();
   };
 
-  const openApproveModal = async (user: User) => {
-    setSelectedUser(user);
+  const openApproveModal = async (u: User) => {
+    setSelectedUser(u);
     setSelectedRole("");
     setSelectedShed("");
     await loadRolesAndSheds();
@@ -138,10 +142,8 @@ const SuperAdminScreen = ({ navigation }: any) => {
       Alert.alert("Validation", "Please select a role");
       return;
     }
-    const needsShed = isShedRequiredRole(selectedRole, roles);
-
-    if (needsShed && !selectedShed) {
-      Alert.alert("Validation", "Please select a shed for Supervisor role");
+    if (isShedRequired(selectedRole) && !selectedShed) {
+      Alert.alert("Validation", "Please select a shed for this role");
       return;
     }
 
@@ -150,11 +152,12 @@ const SuperAdminScreen = ({ navigation }: any) => {
       await approveUser({
         userid: selectedUser!.USERID,
         role_id: selectedRole,
-        shed_name: isShedRequiredRole(selectedRole, roles)
-          ? selectedShed
-          : null,
+        shed_name: isShedRequired(selectedRole) ? selectedShed : undefined,
       });
-      Alert.alert("Success ✅", `${selectedUser!.USER_FIRSTNAME} approved!`);
+      Alert.alert(
+        "Success ✅",
+        `${selectedUser!.USER_FIRSTNAME} approved successfully!`,
+      );
       setApproveModal(false);
       setExpandedUser(null);
       loadUsers();
@@ -165,10 +168,10 @@ const SuperAdminScreen = ({ navigation }: any) => {
     }
   };
 
-  const handleReject = (user: User) => {
+  const handleReject = (u: User) => {
     Alert.alert(
       "Reject User",
-      `Reject ${user.USER_FIRSTNAME} ${user.USER_LASTNAME}?`,
+      `Reject ${u.USER_FIRSTNAME} ${u.USER_LASTNAME}?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -176,7 +179,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
           style: "destructive",
           onPress: async () => {
             try {
-              await rejectUser(user.USERID);
+              await rejectUser(u.USERID);
               Alert.alert("Done", "User rejected");
               setExpandedUser(null);
               loadUsers();
@@ -189,10 +192,10 @@ const SuperAdminScreen = ({ navigation }: any) => {
     );
   };
 
-  const handleStatusChange = (user: User, newStatus: string) => {
+  const handleStatusChange = (u: User, newStatus: string) => {
     Alert.alert(
       `${newStatus === "BLOCKED" ? "Block" : "Activate"} User`,
-      `${newStatus === "BLOCKED" ? "Block" : "Activate"} ${user.USER_FIRSTNAME}?`,
+      `${newStatus === "BLOCKED" ? "Block" : "Activate"} ${u.USER_FIRSTNAME}?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -200,7 +203,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
           style: newStatus === "BLOCKED" ? "destructive" : "default",
           onPress: async () => {
             try {
-              await updateUserStatus(user.USERID, newStatus);
+              await updateUserStatus(u.USERID, newStatus);
               loadUsers();
             } catch (err: any) {
               Alert.alert("Error", err.message);
@@ -211,16 +214,19 @@ const SuperAdminScreen = ({ navigation }: any) => {
     );
   };
 
-  const formatDOB = (dob: string) => {
-    if (!dob) return "--";
-    return new Date(dob).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+  const formatDOB = (dob?: string) => {
+    if (!dob) return "Not provided";
+    try {
+      return new Date(dob).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return dob;
+    }
   };
 
-  // ── Render user card ──────────────────────────────
   const renderUser = ({ item }: { item: User }) => {
     const statusColor = STATUS_COLORS[item.STATUS] || STATUS_COLORS.INACTIVE;
     const isExpanded = expandedUser === item.USERID;
@@ -229,9 +235,9 @@ const SuperAdminScreen = ({ navigation }: any) => {
       <TouchableOpacity
         style={styles.userCard}
         onPress={() => setExpandedUser(isExpanded ? null : item.USERID)}
-        activeOpacity={0.9}
+        activeOpacity={0.95}
       >
-        {/* ── Card Header (always visible) ── */}
+        {/* ── Card Header ── */}
         <View style={styles.userHeader}>
           <View style={styles.userAvatar}>
             <Text style={styles.userAvatarText}>
@@ -244,7 +250,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
             </Text>
             <Text style={styles.userId}>ID: {item.USERID}</Text>
           </View>
-          <View style={{ alignItems: "flex-end", gap: 6 }}>
+          <View style={{ alignItems: "flex-end", gap: 4 }}>
             <View
               style={[styles.statusBadge, { backgroundColor: statusColor.bg }]}
             >
@@ -259,47 +265,29 @@ const SuperAdminScreen = ({ navigation }: any) => {
         {/* ── Expanded Details ── */}
         {isExpanded && (
           <View style={styles.expandedSection}>
-            {/* Divider */}
             <View style={styles.expandDivider} />
 
-            {/* Details grid */}
             <View style={styles.detailsGrid}>
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>📧 Email</Text>
-                <Text style={styles.detailValue}>
-                  {item.USER_EMAIL || "--"}
-                </Text>
-              </View>
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>📞 Phone</Text>
-                <Text style={styles.detailValue}>
-                  {item.USER_CONTACT_NO || "--"}
-                </Text>
-              </View>
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>🎂 Date of Birth</Text>
-                <Text style={styles.detailValue}>
-                  {formatDOB(item.USER_DOB || "")}
-                </Text>
-              </View>
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>🏡 Farm</Text>
-                <Text style={styles.detailValue}>{item.FARM_NAME || "--"}</Text>
-              </View>
-
-              {/* Show role/shed if already assigned */}
-              {item.ROLE_NAME && (
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>🎭 Role</Text>
-                  <Text style={styles.detailValue}>{item.ROLE_NAME}</Text>
+              {[
+                { label: "📧 Email", value: item.USER_EMAIL || "Not provided" },
+                {
+                  label: "📞 Phone",
+                  value: item.USER_CONTACT_NO || "Not provided",
+                },
+                { label: "🎂 Date of Birth", value: formatDOB(item.USER_DOB) },
+                { label: "🏡 Farm", value: item.FARM_NAME || "Not provided" },
+                ...(item.ROLE_NAME
+                  ? [{ label: "🎭 Role", value: item.ROLE_NAME }]
+                  : []),
+                ...(item.SHED_NAME
+                  ? [{ label: "🏠 Shed", value: item.SHED_NAME }]
+                  : []),
+              ].map((detail, i) => (
+                <View key={i} style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>{detail.label}</Text>
+                  <Text style={styles.detailValue}>{detail.value}</Text>
                 </View>
-              )}
-              {item.SHED_NAME && (
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>🏠 Shed</Text>
-                  <Text style={styles.detailValue}>{item.SHED_NAME}</Text>
-                </View>
-              )}
+              ))}
             </View>
 
             {/* Action buttons */}
@@ -325,7 +313,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
                   style={[styles.actionBtn, styles.blockBtn]}
                   onPress={() => handleStatusChange(item, "BLOCKED")}
                 >
-                  <Text style={styles.blockBtnText}>🚫 Block User</Text>
+                  <Text style={styles.blockBtnText}>🚫 Block</Text>
                 </TouchableOpacity>
               )}
               {(item.STATUS === "BLOCKED" || item.STATUS === "INACTIVE") && (
@@ -347,7 +335,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
     <View style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#1e3a5f" />
 
-      {/* ── Header — NO logout button ── */}
+      {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
@@ -356,7 +344,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Super Admin Panel</Text>
+          <Text style={styles.headerTitle}>Admin Panel</Text>
           <Text style={styles.headerSubtitle}>
             {user?.firstname} {user?.lastname}
           </Text>
@@ -383,14 +371,14 @@ const SuperAdminScreen = ({ navigation }: any) => {
         ))}
       </View>
 
-      {/* ── Stats bar ── */}
+      {/* ── Stats ── */}
       {!loading && (
         <View style={styles.statsBar}>
           <Text style={styles.statsText}>
             {activeTab === "pending" ? "⏳ Pending" : "👥 Total"}:{" "}
             <Text style={styles.statsCount}>{users.length}</Text>
           </Text>
-          <Text style={styles.statsHint}>Tap card to expand details</Text>
+          <Text style={styles.statsHint}>Tap card to expand</Text>
         </View>
       )}
 
@@ -398,7 +386,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={styles.loadingText}>Loading users...</Text>
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
       ) : (
         <FlatList
@@ -420,7 +408,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
               </Text>
               <Text style={styles.emptyText}>
                 {activeTab === "pending"
-                  ? "No pending requests!"
+                  ? "No pending requests"
                   : "No users found"}
               </Text>
             </View>
@@ -438,6 +426,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Modal header */}
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Approve User</Text>
                 <TouchableOpacity onPress={() => setApproveModal(false)}>
@@ -445,7 +434,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
               </View>
 
-              {/* Selected user info */}
+              {/* User summary */}
               {selectedUser && (
                 <View style={styles.modalUserInfo}>
                   <View style={styles.modalAvatar}>
@@ -463,6 +452,11 @@ const SuperAdminScreen = ({ navigation }: any) => {
                     <Text style={styles.modalUserId}>
                       📞 {selectedUser.USER_CONTACT_NO}
                     </Text>
+                    {selectedUser.USER_DOB && (
+                      <Text style={styles.modalUserId}>
+                        🎂 {formatDOB(selectedUser.USER_DOB)}
+                      </Text>
+                    )}
                   </View>
                 </View>
               )}
@@ -475,15 +469,12 @@ const SuperAdminScreen = ({ navigation }: any) => {
                     key={role.ROLE_ID}
                     style={[
                       styles.roleOption,
-                      selectedRole === role.ROLE_ID &&
+                      selectedRole === String(role.ROLE_ID) &&
                         styles.roleOptionSelected,
                     ]}
                     onPress={() => {
-                      setSelectedRole(role.ROLE_ID);
-
-                      if (!isShedRequiredRole(role.ROLE_ID, roles)) {
-                        setSelectedShed("");
-                      }
+                      setSelectedRole(String(role.ROLE_ID));
+                      setSelectedShed(""); // reset shed on role change
                     }}
                   >
                     <Text style={styles.roleIcon}>
@@ -493,7 +484,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
                       <Text
                         style={[
                           styles.roleLabel,
-                          selectedRole === role.ROLE_ID &&
+                          selectedRole === String(role.ROLE_ID) &&
                             styles.roleLabelSelected,
                         ]}
                       >
@@ -505,17 +496,20 @@ const SuperAdminScreen = ({ navigation }: any) => {
                         </Text>
                       ) : null}
                     </View>
-                    {selectedRole === role.ROLE_ID && (
+                    {selectedRole === String(role.ROLE_ID) && (
                       <Text style={styles.roleCheck}>✓</Text>
                     )}
                   </TouchableOpacity>
                 ))}
               </View>
 
-              {/* Select Shed */}
-              {selectedRole && isShedRequiredRole(selectedRole, roles) && (
+              {/* Shed selection — ONLY for roles 6, 7, 8 */}
+              {selectedRole && isShedRequired(selectedRole) && (
                 <>
-                  <Text style={styles.sectionLabel}>Select Shed *</Text>
+                  <View style={styles.shedHeader}>
+                    <Text style={styles.sectionLabel}>Assign Shed *</Text>
+                    <Text style={styles.shedHint}>Required for this role</Text>
+                  </View>
                   <View style={styles.shedGrid}>
                     {sheds.map((shed) => (
                       <TouchableOpacity
@@ -543,6 +537,16 @@ const SuperAdminScreen = ({ navigation }: any) => {
                     ))}
                   </View>
                 </>
+              )}
+
+              {/* Info for non-shed roles */}
+              {selectedRole && !isShedRequired(selectedRole) && (
+                <View style={styles.infoBox}>
+                  <Text style={styles.infoText}>
+                    ℹ️ This role has access to all sheds. No shed assignment
+                    needed.
+                  </Text>
+                </View>
               )}
 
               {/* Approve button */}
@@ -580,8 +584,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#f3f4f6",
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
-
-  // Header — no logout
   header: {
     backgroundColor: "#1e3a5f",
     flexDirection: "row",
@@ -596,7 +598,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: "800", color: "#fff" },
   headerSubtitle: { fontSize: 12, color: "rgba(255,255,255,0.65)" },
 
-  // Tabs
   tabBar: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -608,7 +609,6 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 14, fontWeight: "600", color: "#9ca3af" },
   tabTextActive: { color: "#1e3a5f" },
 
-  // Stats
   statsBar: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -633,7 +633,6 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyText: { fontSize: 16, fontWeight: "600", color: "#374151" },
 
-  // User card
   userCard: {
     backgroundColor: "#fff",
     borderRadius: 14,
@@ -663,11 +662,10 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: "700" },
   expandIcon: { fontSize: 10, color: "#9ca3af" },
 
-  // Expanded section
   expandedSection: { marginTop: 12 },
-  expandDivider: { height: 1, backgroundColor: "#f3f4f6", marginBottom: 12 },
+  expandDivider: { height: 1, backgroundColor: "#f3f4f6", marginBottom: 14 },
   detailsGrid: { gap: 10, marginBottom: 16 },
-  detailItem: {
+  detailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
@@ -681,7 +679,6 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
 
-  // Actions
   actionRow: { flexDirection: "row", gap: 8 },
   actionBtn: {
     flex: 1,
@@ -714,7 +711,6 @@ const styles = StyleSheet.create({
   },
   activateBtnText: { color: "#1e40af", fontWeight: "700", fontSize: 13 },
 
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -725,7 +721,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    maxHeight: "90%",
+    maxHeight: "92%",
   },
   modalHeader: {
     flexDirection: "row",
@@ -737,7 +733,7 @@ const styles = StyleSheet.create({
   modalClose: { fontSize: 20, color: "#9ca3af", padding: 4 },
   modalUserInfo: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 12,
     backgroundColor: "#f9fafb",
     padding: 14,
@@ -753,8 +749,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalAvatarText: { color: "#fff", fontWeight: "700", fontSize: 20 },
-  modalUserName: { fontSize: 15, fontWeight: "700", color: "#1e3a5f" },
-  modalUserEmail: { fontSize: 13, color: "#6b7280", marginTop: 2 },
+  modalUserName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1e3a5f",
+    marginBottom: 2,
+  },
+  modalUserEmail: { fontSize: 13, color: "#6b7280" },
   modalUserId: { fontSize: 12, color: "#9ca3af", marginTop: 2 },
 
   sectionLabel: {
@@ -763,7 +764,6 @@ const styles = StyleSheet.create({
     color: "#374151",
     marginBottom: 10,
   },
-
   roleGrid: { gap: 10, marginBottom: 20 },
   roleOption: {
     flexDirection: "row",
@@ -782,6 +782,13 @@ const styles = StyleSheet.create({
   roleDesc: { fontSize: 11, color: "#9ca3af", marginTop: 2 },
   roleCheck: { fontSize: 16, color: "#1e3a5f", fontWeight: "800" },
 
+  shedHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  shedHint: { fontSize: 11, color: "#f59e0b", fontWeight: "600" },
   shedGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -803,6 +810,14 @@ const styles = StyleSheet.create({
   shedLabel: { fontSize: 13, fontWeight: "600", color: "#374151" },
   shedLabelSelected: { color: "#166534" },
   shedCheck: { fontSize: 14, color: "#22c55e", fontWeight: "800" },
+
+  infoBox: {
+    backgroundColor: "#eff6ff",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  infoText: { fontSize: 13, color: "#1e40af", lineHeight: 18 },
 
   approveConfirmBtn: {
     backgroundColor: "#1e3a5f",
