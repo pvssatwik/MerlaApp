@@ -17,6 +17,10 @@ const {
   fetchGodownSyloStock,
   insertShedEggProduction,
   insertShedFeedReceived,
+  fetchEggProductions,
+  fetchShedEggProductionSummary,
+  fetchShedEggBalance,
+  fetchShedFeedBalance,
 } = require("../controllers/eggProductionController");
 
 const {
@@ -41,12 +45,16 @@ router.post("/feed-supply", insertFeedSupply);
 router.post("/shed-egg-production", insertShedEggProduction);
 router.post("/shed-feed-received", insertShedFeedReceived);
 
+
 // ── Summary view routes ───────────────────────────────
 router.get("/egg-production-summary", fetchEggProductionSummary);
 router.get("/egg-stock-summary", fetchEggStockSummary);
 router.get("/egg-sales-summary", fetchEggSalesSummary);
 router.get("/cull-birds-summary", fetchCullBirdsSummary);
 router.get("/godown-sylo-stock", fetchGodownSyloStock);
+router.get('/shed-egg-production-summary', fetchShedEggProductionSummary);
+router.get('/shed-egg-balance',            fetchShedEggBalance);
+router.get('/shed-feed-balance',           fetchShedFeedBalance);
 
 // ── Dropdown routes ───────────────────────────────────
 router.get("/dropdowns/sheds", dropdownController.getSheds);

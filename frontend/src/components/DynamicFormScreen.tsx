@@ -28,6 +28,8 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { authPost } from "../config/api";
 import { useAuth } from "../context/AuthContext";
+import Snackbar from "../components/Snackbar";
+import { useSnackbar } from "../hooks/useSnackbar";
 
 // ─── API Route Mapping ────────────────────────────────────
 const API_ROUTES: Record<string, string> = {
@@ -74,6 +76,7 @@ const fetchDropdownData = async (
 const DynamicFormScreen = ({ route, navigation }: any) => {
   const { title, fields, api } = route.params;
   const { user } = useAuth();
+  const { snackbar, show, hide } = useSnackbar();
 
   const fullAccessRoles = ["SUPER_ADMIN", "ADMIN", "INCHARGE", "1"];
 
@@ -206,7 +209,7 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
   const validate = () => {
     for (let field of fields) {
       if (field.required && !form[field.name]) {
-        Alert.alert("Validation ⚠️", `${field.label} is required`);
+        show(`${field.label} is required`, "warning");
         return false;
       }
     }
@@ -249,18 +252,21 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
 
       const endpoint = API_ROUTES[api];
       if (!endpoint) {
-        Alert.alert("Error ❌", `No API mapped for: ${api}`);
+        show(`No API mapped for: ${api}`, "error");
         return;
       }
 
       const result = await authPost(endpoint, formattedForm);
 
       if (result.success) {
-        Alert.alert("Success ✅", result.message || "Saved successfully!");
+        show(result.message || "Data saved successfully!", "success");
         setForm({});
         setDropdownOptions({});
       } else {
-        Alert.alert("Error ❌", result.error || "Something went wrong");
+        show(
+          result.error || "Something went wrong. Please try again.",
+          "error",
+        );
       }
     } catch (error: any) {
       console.error(error);
@@ -268,7 +274,7 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
         error.message === "Session expired. Please login again."
           ? error.message
           : "Could not connect to server.\nMake sure backend is running.";
-      Alert.alert("Error ❌", msg);
+      show(msg, "error");
     } finally {
       setLoading(false);
     }
@@ -426,11 +432,11 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
                     }
 
                     if (field.dependsOn && !form[field.dependsOn]) {
-                      Alert.alert(
-                        "⚠️",
+                      show(
                         `Please select ${field.dependsOn
                           .replace("_no", "")
                           .replace("_", " ")} first`,
+                        "warning",
                       );
                       return;
                     }
@@ -540,6 +546,12 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
           </View>
         </TouchableOpacity>
       </Modal>
+      <Snackbar
+        visible={snackbar.visible}
+        message={snackbar.message}
+        type={snackbar.type}
+        onDismiss={hide}
+      />
     </KeyboardAvoidingView>
   );
 };

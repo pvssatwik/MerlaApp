@@ -543,6 +543,73 @@ const fetchGodownSyloStock = (req, res) => {
   });
 };
 
+// ── Shed Egg Production Summary ───────────────────────
+const fetchShedEggProductionSummary = (req, res) => {
+  const { filter, start_date, end_date } = req.query;
+  let dateCondition = buildDateCondition(
+    "PRODUCTION_DATE",
+    filter,
+    start_date,
+    end_date,
+  );
+
+  connection.execute({
+    sqlText: `
+      SELECT * FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_PRODUCTION_SUMMARY
+      ${dateCondition}
+      ORDER BY PRODUCTION_DATE DESC
+    `,
+    complete: (err, stmt, rows) => {
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true, data: rows });
+    },
+  });
+};
+
+// ── Shed Egg Balance ──────────────────────────────────
+const fetchShedEggBalance = (req, res) => {
+  connection.execute({
+    sqlText: `SELECT * FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_EGG_BALANCE`,
+    complete: (err, stmt, rows) => {
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true, data: rows });
+    },
+  });
+};
+
+// ── Shed Feed Balance ─────────────────────────────────
+const fetchShedFeedBalance = (req, res) => {
+  connection.execute({
+    sqlText: `SELECT * FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_FEED_BALANCE`,
+    complete: (err, stmt, rows) => {
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true, data: rows });
+    },
+  });
+};
+
+// Helper for date conditions
+const buildDateCondition = (dateCol, filter, start_date, end_date) => {
+  switch (filter) {
+    case "today":
+      return `WHERE ${dateCol} = CURRENT_DATE`;
+    case "week":
+      return `WHERE ${dateCol} >= DATEADD(day, -7, CURRENT_DATE)`;
+    case "month":
+      return `WHERE ${dateCol} >= DATEADD(month, -1, CURRENT_DATE)`;
+    case "year":
+      return `WHERE ${dateCol} >= DATEADD(year, -1, CURRENT_DATE)`;
+    case "custom":
+      if (start_date && end_date)
+        return `WHERE ${dateCol} BETWEEN '${start_date}' AND '${end_date}'`;
+    default:
+      return "";
+  }
+};
+
 // ── Shed Egg Production ───────────────────────────────
 const insertShedEggProduction = (req, res) => {
   const {
@@ -646,4 +713,7 @@ module.exports = {
   fetchGodownSyloStock,
   insertShedEggProduction,
   insertShedFeedReceived,
+  fetchShedEggProductionSummary,
+  fetchShedEggBalance,
+  fetchShedFeedBalance,
 };

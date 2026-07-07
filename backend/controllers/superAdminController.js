@@ -15,14 +15,14 @@ const getPendingUsers = (req, res) => {
     sqlText: `
       SELECT
         USERID, FARM_NAME, USER_FIRSTNAME, USER_LASTNAME,
-        USER_EMAIL, USER_CONTACT_NO, USER_DOB, STATUS
+        USER_EMAIL, USER_CONTACT_NO, USER_DOB, STATUS,
+        GOV_ID
       FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS
       WHERE STATUS = 'PENDING'
       ORDER BY USERID
     `,
     complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
+      if (err) return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
     },
   });
