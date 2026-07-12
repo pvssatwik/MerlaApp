@@ -53,6 +53,74 @@ const sendOTPEmail = async (email, otp, purpose = "Login") => {
   });
 };
 
+// ── Send SMS OTP via Fast2SMS (OTP route — no DLT needed) ──
+const sendSMSOTP = async (phone, otp) => {
+  if (isOtpBypassEnabled()) {
+    console.log(
+      `[OTP BYPASS] SMS skipped for ${phone} — use code: ${getOtpBypassCode()}`,
+    );
+    return { success: true, bypass: true };
+  }
+
+  // Clean phone number — remove +91, spaces, etc
+  const cleanPhone = phone.replace(/\D/g, "").replace(/^91/, "").slice(-10);
+
+  if (cleanPhone.length !== 10) {
+    console.error(`Invalid phone number: ${phone}`);
+    return { success: false, error: "Invalid phone number" };
+  }
+  console.log("FAST2SMS_API_KEY:", process.env.FAST2SMS_API_KEY);
+
+  try {
+    const axios = require("axios");
+    const response = await axios({
+      method: "POST",
+      url: "https://www.fast2sms.com/dev/bulkV2",
+      headers: {
+        authorization: process.env.FAST2SMS_API_KEY,
+        "Content-Type": "application/json",
+      },
+      data: {
+        route: "otp", // ← OTP route, no DLT needed
+        variables_values: otp, // ← the OTP code
+        numbers: cleanPhone, // ← 10-digit phone
+      },
+    });
+    console.log("FAST2SMS_API_KEY:", process.env.FAST2SMS_API_KEY);
+    console.log(`✅ SMS OTP sent to ${cleanPhone}:`, response.data);
+    return { success: true, data: response.data };
+  } catch (err) {
+    const errMsg = err.response?.data?.message || err.message;
+    console.error(`❌ SMS OTP failed for ${cleanPhone}:`, errMsg);
+    return { success: false, error: errMsg };
+  }
+};
+
+// ── Send OTP via both Email AND SMS ──────────────────
+const sendOTP = async (email, phone, otp, purpose = "Login") => {
+  const results = { email: null, sms: null };
+
+  // Send email OTP
+  if (email) {
+    try {
+      await sendOTPEmail(email, otp, purpose);
+      results.email = "sent";
+      console.log(`✅ Email OTP sent to ${email}`);
+    } catch (emailErr) {
+      console.error(`❌ Email OTP failed: ${emailErr.message}`);
+      results.email = "failed";
+    }
+  }
+
+  // Send SMS OTP
+  if (phone) {
+    const smsResult = await sendSMSOTP(phone, otp);
+    results.sms = smsResult.success ? "sent" : "failed";
+  }
+
+  return results;
+};
+
 // ── Generate JWT Tokens ───────────────────────────────
 const generateTokens = (payload) => {
   const accessToken = jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
@@ -291,7 +359,6 @@ const signUp = async (req, res) => {
     password,
     gov_id,
   } = req.body;
-  // ⚠️ Note: userid removed from required fields — now auto-generated
 
   if (
     !user_firstname ||
@@ -348,6 +415,28 @@ const signUp = async (req, res) => {
     console.error("SignUp error:", err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
+};
+
+// ── Check if email exists ─────────────────────────────
+const checkEmail = (req, res) => {
+  const { email } = req.query;
+  if (!email)
+    return res.status(400).json({ success: false, error: "Email required" });
+
+  connection.execute({
+    sqlText: `
+      SELECT COUNT(*) AS COUNT
+      FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS
+      WHERE USER_EMAIL = ?
+    `,
+    binds: [email],
+    complete: (err, stmt, rows) => {
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
+      const exists = rows[0].COUNT > 0;
+      res.json({ success: true, exists });
+    },
+  });
 };
 
 // ─────────────────────────────────────────────────────
@@ -469,8 +558,13 @@ const login = async (req, res) => {
               );
             }
 
-            // Send email (bypass skips email automatically)
-            await sendOTPEmail(user.USER_EMAIL, otp, "Login Verification");
+            // Send email and mobile (bypass skips email automatically)
+            await sendOTP(
+              user.USER_EMAIL,
+              user.USER_CONTACT_NO,
+              otp,
+              "Login Verification",
+            );
 
             return res.json({
               success: true,
@@ -689,10 +783,11 @@ const resendOTP = async (req, res) => {
           await storeOTP(userId, otp, type);
         }
 
-        await sendOTPEmail(
+        await sendOTP(
           user.USER_EMAIL,
+          user.USER_CONTACT_NO,
           otp,
-          type === "LOGIN" ? "Login Verification" : "Password Reset",
+          "Password Reset",
         );
 
         return res.json({
@@ -747,7 +842,12 @@ const forgotPassword = async (req, res) => {
           await storeOTP(user.USERID, otp, "FORGOT_PASSWORD");
         }
 
-        await sendOTPEmail(user.USER_EMAIL, otp, "Password Reset");
+        await sendOTP(
+          user.USER_EMAIL,
+          user.USER_CONTACT_NO,
+          otp,
+          type === "LOGIN" ? "Login Verification" : "Password Reset",
+        );
 
         return res.json({
           success: true,
@@ -898,4 +998,5 @@ module.exports = {
   verifyForgotOTP,
   resetPassword,
   logout,
+  checkEmail,
 };

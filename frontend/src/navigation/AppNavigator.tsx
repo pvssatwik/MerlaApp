@@ -19,6 +19,10 @@ import EggSalesDetailScreen from "../screens/summariesScreens/EggSalesDetailScre
 import BirdStockDetailScreen from "../screens/summariesScreens/BirdStockDetailScreen";
 import FeedStockDetailScreen from "../screens/summariesScreens/FeedStockDetailScreen";
 import SuperAdminScreen from "../screens/superadmin/SuperAdminScreen";
+import ConsolidatedDetailScreen from "../screens/ConsolidatedDetailScreen";
+import ShedFeedBalanceDetailScreen from "../screens/ShedFeedBalanceDetailScreen";
+import ShedEggProductionDetailScreen from "../screens/ShedEggProductionDetailScreen";
+import ShedEggBalanceDetailScreen from "../screens/ShedEggBalanceDetailScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -57,6 +61,26 @@ export default function AppNavigator() {
       <Stack.Screen name="EggSalesDetail" component={EggSalesDetailScreen} />
       <Stack.Screen name="BirdStockDetail" component={BirdStockDetailScreen} />
       <Stack.Screen name="FeedStockDetail" component={FeedStockDetailScreen} />
+      <Stack.Screen
+        name="ShedEggProductionDetail"
+        component={ShedEggProductionDetailScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ShedEggBalanceDetail"
+        component={ShedEggBalanceDetailScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ShedFeedBalanceDetail"
+        component={ShedFeedBalanceDetailScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ConsolidatedDetail"
+        component={ConsolidatedDetailScreen}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   );
 }

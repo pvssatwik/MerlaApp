@@ -14,6 +14,8 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { signUp } from "../../services/authService";
+import { API_BASE_URL, API_HEADERS } from "../../config/api";
+import { useAuth } from "../../context/AuthContext";
 
 const SignUpScreen = ({ navigation }: any) => {
   const [form, setForm] = useState({
@@ -31,6 +33,8 @@ const SignUpScreen = ({ navigation }: any) => {
   const [showPass, setShowPass] = useState(false);
   const [showConf, setShowConf] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [checkingEmail, setChecking] = useState(false);
 
   const set = (key: string, val: any) =>
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -44,6 +48,32 @@ const SignUpScreen = ({ navigation }: any) => {
     return `${y}-${m}-${day}`;
   };
 
+  const checkEmailExists = async (email: string) => {
+    if (!email || !email.includes("@")) return;
+
+    setChecking(true);
+    setEmailError("");
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/auth/check-email?email=${encodeURIComponent(email)}`,
+        {
+          headers: API_HEADERS,
+        },
+      );
+
+      const result = await res.json();
+
+      if (result.exists) {
+        setEmailError("This email is already registered.");
+      }
+    } catch (e) {
+      console.error("Email check error:", e);
+    } finally {
+      setChecking(false);
+    }
+  };
+
   const validate = () => {
     if (!form.firstName) {
       Alert.alert("Validation", "First name is required");
@@ -54,6 +84,10 @@ const SignUpScreen = ({ navigation }: any) => {
       return false;
     }
     if (!form.email) {
+      if (emailError) {
+        Alert.alert("Validation", emailError);
+        return false;
+      }
       Alert.alert("Validation", "Email is required");
       return false;
     }
@@ -184,15 +218,28 @@ const SignUpScreen = ({ navigation }: any) => {
             {/* Email */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email Address *</Text>
+
               <TextInput
-                style={styles.input}
+                style={[styles.input, emailError ? styles.inputError : null]}
                 placeholder="john@example.com"
                 placeholderTextColor="#9ca3af"
                 value={form.email}
-                onChangeText={(v) => set("email", v)}
+                onChangeText={(v) => {
+                  set("email", v);
+                  setEmailError("");
+                }}
+                onBlur={() => checkEmailExists(form.email)}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
+
+              {checkingEmail && (
+                <Text style={styles.checkingText}>⏳ Checking...</Text>
+              )}
+
+              {emailError ? (
+                <Text style={styles.errorText}>❌ {emailError}</Text>
+              ) : null}
             </View>
 
             {/* Phone */}
@@ -372,6 +419,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#111827",
     backgroundColor: "#f9fafb",
+  },
+  inputError: {
+    borderColor: "#dc2626",
+  },
+
+  checkingText: {
+    marginTop: 5,
+    fontSize: 12,
+    color: "#2563eb",
+  },
+
+  errorText: {
+    marginTop: 5,
+    fontSize: 12,
+    color: "#dc2626",
   },
   dateText: { fontSize: 14, color: "#111827" },
 

@@ -23,6 +23,8 @@ import {
   updateUserStatus,
 } from "../../services/adminService";
 import { useAuth } from "../../context/AuthContext";
+import Snackbar from "../../components/Snackbar";
+import { useSnackbar } from "../../hooks/useSnackbar";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   PENDING: { bg: "#fef3c7", text: "#92400e" },
@@ -49,6 +51,7 @@ type User = {
   USER_EMAIL: string;
   USER_CONTACT_NO: string;
   USER_DOB?: string;
+  GOV_ID?: string;
   STATUS: string;
   ROLE_ID?: string;
   ROLE_NAME?: string;
@@ -74,6 +77,7 @@ const getRoleIcon = (roleName: string) => {
 
 const SuperAdminScreen = ({ navigation }: any) => {
   const { user } = useAuth();
+  const { snackbar, show, hide } = useSnackbar();
   const [activeTab, setActiveTab] = useState("pending");
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -99,7 +103,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
         activeTab === "pending" ? await getPendingUsers() : await getAllUsers();
       setUsers(result.data || []);
     } catch (err: any) {
-      Alert.alert("Error", err.message);
+      show(err.message, "error");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -154,15 +158,12 @@ const SuperAdminScreen = ({ navigation }: any) => {
         role_id: selectedRole,
         shed_name: isShedRequired(selectedRole) ? selectedShed : undefined,
       });
-      Alert.alert(
-        "Success ✅",
-        `${selectedUser!.USER_FIRSTNAME} approved successfully!`,
-      );
+      show(`${selectedUser!.USER_FIRSTNAME} approved successfully!`, "success");
       setApproveModal(false);
       setExpandedUser(null);
       loadUsers();
     } catch (err: any) {
-      Alert.alert("Error ❌", err.message);
+      show(err.message, "error");
     } finally {
       setApproving(false);
     }
@@ -180,11 +181,11 @@ const SuperAdminScreen = ({ navigation }: any) => {
           onPress: async () => {
             try {
               await rejectUser(u.USERID);
-              Alert.alert("Done", "User rejected");
+              show("User rejected", "info");
               setExpandedUser(null);
               loadUsers();
             } catch (err: any) {
-              Alert.alert("Error", err.message);
+              show(err.message, "error");
             }
           },
         },
@@ -206,7 +207,7 @@ const SuperAdminScreen = ({ navigation }: any) => {
               await updateUserStatus(u.USERID, newStatus);
               loadUsers();
             } catch (err: any) {
-              Alert.alert("Error", err.message);
+              show(err.message, "error");
             }
           },
         },
@@ -274,7 +275,9 @@ const SuperAdminScreen = ({ navigation }: any) => {
                   label: "📞 Phone",
                   value: item.USER_CONTACT_NO || "Not provided",
                 },
+
                 { label: "🎂 Date of Birth", value: formatDOB(item.USER_DOB) },
+                { label: "🪪 Govt ID", value: item.GOV_ID || "Not provided" },
                 { label: "🏡 Farm", value: item.FARM_NAME || "Not provided" },
                 ...(item.ROLE_NAME
                   ? [{ label: "🎭 Role", value: item.ROLE_NAME }]
@@ -572,6 +575,12 @@ const SuperAdminScreen = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
+      <Snackbar
+        visible={snackbar.visible}
+        message={snackbar.message}
+        type={snackbar.type}
+        onDismiss={hide}
+      />
     </View>
   );
 };
