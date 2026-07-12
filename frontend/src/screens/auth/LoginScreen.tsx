@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -15,47 +15,44 @@ import {
 import { login } from "../../services/authService";
 
 const LoginScreen = ({ navigation }: any) => {
+  console.log("LOGIN SCREEN RENDERED");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-  if (!identifier || !password) {
-    Alert.alert("Validation", "Please enter email/phone and password");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    // Call backend login API
-    const result = await login({
-      identifier,
-      password,
-    });
-
-    // Navigate to OTP screen
-    navigation.navigate("OTP", {
-  userId: result.userId,
-  identifier: result.identifier,
-  flow: "login",
-});
-
-  } catch (error: any) {
-
-    // User not approved yet
-    if (error.message.includes("pending")) {
-      navigation.navigate("PendingApproval");
-
-    } else {
-      Alert.alert("Login Failed", error.message);
+    if (!identifier || !password) {
+      Alert.alert("Validation", "Please enter email/phone and password");
+      return;
     }
 
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
+
+    try {
+      // Call backend login API
+      const result = await login({
+        identifier,
+        password,
+      });
+
+      // Navigate to OTP screen
+      navigation.navigate("OTP", {
+        userId: result.userId,
+        identifier: result.identifier,
+        flow: "login",
+      });
+    } catch (error: any) {
+      // User not approved yet
+      if (error.message.includes("pending")) {
+        navigation.navigate("PendingApproval");
+      } else {
+        Alert.alert("Login Failed", error.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.safe}>

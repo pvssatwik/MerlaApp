@@ -131,17 +131,6 @@ const SUMMARY_CARDS = [
     borderColor: "#eab308",
     screen: "ShedFeedBalanceDetail",
   },
-  // Superadmin only
-  {
-    id: "consolidated",
-    title: "Consolidated",
-    icon: "📊",
-    value: "--",
-    unit: "full report",
-    color: "#f0fdf4",
-    borderColor: "#22c55e",
-    screen: "ConsolidatedDetail",
-  },
 ];
 
 // ── Quick actions ─────────────────────────────────────────
@@ -290,7 +279,6 @@ const HomeScreen = ({ navigation }: any) => {
             </Text>
           </View>
 
-          {/* SUPER ADMIN BUTTON */}
           <TouchableOpacity style={styles.avatar} onPress={handleLogout}>
             <Text style={styles.avatarText}>
               {user?.firstname?.[0]?.toUpperCase() || "U"}
@@ -298,7 +286,7 @@ const HomeScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
-        {/* ── Date strip ── */}
+        {/* ── Date Strip ── */}
         <View style={styles.dateStrip}>
           <Text style={styles.dateText}>
             📅{" "}
@@ -310,7 +298,9 @@ const HomeScreen = ({ navigation }: any) => {
             })}
           </Text>
         </View>
-        {isAdminRole(user?.role || "") && (
+
+        {/* ── Admin Panel (Super Admin only) ── */}
+        {isSuperAdmin(user?.role || "") && (
           <TouchableOpacity
             style={styles.adminBanner}
             onPress={() => navigation.navigate("SuperAdmin")}
@@ -328,7 +318,39 @@ const HomeScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         )}
 
-        {/* ── Summary Cards ── */}
+        {/* ── Consolidated Report (Super Admin only) ── */}
+        {isSuperAdmin(user?.role || "") && (
+          <>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionTitle}>📊 Consolidated Report</Text>
+              <Text style={styles.sectionHint}>Super Admin Only</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.consolidatedCard}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate("ConsolidatedDetail")}
+            >
+              <View style={styles.consolidatedLeft}>
+                <Text style={styles.consolidatedIcon}>📊</Text>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.consolidatedTitle}>
+                    Daily Consolidated Summary
+                  </Text>
+
+                  <Text style={styles.consolidatedSubtitle}>
+                    View overall Production, Birds, Feed and Stock reports
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.consolidatedArrow}>→</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* ── Today's Summary ── */}
         {canViewSummaries(user?.role || "") && (
           <>
             <View style={styles.sectionRow}>
@@ -337,12 +359,7 @@ const HomeScreen = ({ navigation }: any) => {
             </View>
 
             <View style={styles.cardsGrid}>
-              {SUMMARY_CARDS.filter((card) => {
-                if (card.id === "consolidated") {
-                  return isSuperAdmin(user?.role || "");
-                }
-                return true;
-              }).map((card) => (
+              {SUMMARY_CARDS.map((card) => (
                 <TouchableOpacity
                   key={card.id}
                   style={[
@@ -357,8 +374,11 @@ const HomeScreen = ({ navigation }: any) => {
                   onPress={() => handleCardPress(card)}
                 >
                   <Text style={styles.summaryCardIcon}>{card.icon}</Text>
+
                   <Text style={styles.summaryCardValue}>{card.value}</Text>
+
                   <Text style={styles.summaryCardTitle}>{card.title}</Text>
+
                   <Text style={styles.summaryCardUnit}>{card.unit}</Text>
 
                   {card.screen && (
@@ -386,7 +406,9 @@ const HomeScreen = ({ navigation }: any) => {
                   onPress={() => navigateToForm(action.api)}
                 >
                   <Text style={styles.quickIcon}>{action.icon}</Text>
+
                   <Text style={styles.quickLabel}>{action.label}</Text>
+
                   <Text style={styles.quickArrow}>→</Text>
                 </TouchableOpacity>
               ))}
@@ -424,7 +446,7 @@ const HomeScreen = ({ navigation }: any) => {
           </>
         )}
 
-        {/* Admin view */}
+        {/* ── Admin View Banner ── */}
         {isAdminViewOnly(user?.role || "") && (
           <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>📊 Reports & Summaries</Text>
@@ -432,7 +454,7 @@ const HomeScreen = ({ navigation }: any) => {
           </View>
         )}
 
-        {/* Supervisor banner */}
+        {/* ── Supervisor Banner ── */}
         {isSupervisor(user?.role || "") && (
           <View style={styles.supervisorBanner}>
             <Text style={styles.supervisorBannerIcon}>👷</Text>
@@ -450,7 +472,6 @@ const HomeScreen = ({ navigation }: any) => {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ── Sidebar ── */}
       <SidebarMenu
         visible={sidebarVisible}
         onClose={() => setSidebarVisible(false)}
@@ -681,4 +702,42 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     marginTop: 2,
   },
+  consolidatedCard: {
+    backgroundColor: "#1e3a5f",
+    marginHorizontal: 16,
+    borderRadius: 14,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    elevation: 4,
+    shadowColor: "#1e3a5f",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    marginBottom: 8,
+  },
+  consolidatedLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  consolidatedIcon: { fontSize: 32 },
+  consolidatedTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 3,
+  },
+  consolidatedSubtitle: { fontSize: 12, color: "rgba(255,255,255,0.65)" },
+  consolidatedArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  consolidatedArrowText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });

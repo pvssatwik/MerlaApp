@@ -20,16 +20,30 @@ export {
 
 const post = async (url: string, body: any, token?: string) => {
   const headers: any = { ...API_HEADERS };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE_URL}${url}`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.error || "Something went wrong");
-  return result;
+  const fullUrl = `${API_BASE_URL}${url}`;
+
+  console.log("🌐 URL:", fullUrl);
+  console.log("📦 BODY:", body);
+
+  try {
+    const res = await fetch(fullUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    console.log("✅ STATUS:", res.status);
+
+    const result = await res.json();
+    console.log("✅ RESPONSE:", result);
+
+    return result;
+  } catch (error) {
+    console.log("❌ FETCH ERROR:", error);
+    throw error;
+  }
 };
 
 export const signUp = (data: {

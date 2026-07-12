@@ -28,10 +28,12 @@ const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   const { isLoading, isAuthenticated } = useAuth();
+  console.log("Navigator", isLoading, isAuthenticated);
 
   if (isLoading) {
     return <SplashScreen />;
   }
+  console.log("Returning navigator");
 
   return (
     <Stack.Navigator

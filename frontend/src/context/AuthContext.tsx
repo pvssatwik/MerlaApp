@@ -59,26 +59,38 @@ export const AuthProvider = ({ children }: any) => {
       setSessionExpiredHandler(null);
     };
   }, []);
-
   const restoreSession = async () => {
+    console.log("restoreSession started");
+
     try {
       const savedUser = await getUser();
+      console.log("savedUser =", savedUser);
+
       const refresh = await getRefreshToken();
+      console.log("refresh =", refresh);
 
       if (!savedUser || !refresh) {
+        console.log("No saved session");
         return;
       }
 
       const result = await refreshAccessToken();
+      console.log("refresh result =", result);
+
       await saveAccessToken(result.accessToken);
+
       setUser(savedUser);
       setAccessToken(result.accessToken);
-    } catch {
-      // Stale tokens after logout or expired refresh — user logs in again
+
+      console.log("Session restored");
+    } catch (e) {
+      console.log("restoreSession error", e);
+
       await clearTokens();
       setUser(null);
       setAccessToken(null);
     } finally {
+      console.log("restoreSession finished");
       setIsLoading(false);
     }
   };
