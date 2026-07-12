@@ -3,9 +3,23 @@ const express = require("express");
 const cors = require("cors");
 
 const app = express();
-app.use(cors());
+//app.use(cors());
+// Production CORS
+app.use(
+  cors({
+    origin: "*", // or specify your app's bundle ID
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  next();
+});
 
 app.use("/api/transactions", require("./routes/transactions"));
 app.use("/api/auth", require("./routes/auth"));
