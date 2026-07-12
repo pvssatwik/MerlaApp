@@ -22,7 +22,8 @@ const getPendingUsers = (req, res) => {
       ORDER BY USERID
     `,
     complete: (err, stmt, rows) => {
-      if (err) return res.status(500).json({ success: false, error: err.message });
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
       res.json({ success: true, data: rows });
     },
   });
@@ -35,7 +36,7 @@ const getAllUsers = (req, res) => {
       SELECT
         FU.USERID, FU.FARM_NAME, FU.USER_FIRSTNAME,
         FU.USER_LASTNAME, FU.USER_EMAIL, FU.USER_CONTACT_NO,
-        FU.USER_DOB, FU.STATUS,
+        FU.USER_DOB, FU.STATUS, FU.GOV_ID,
         USA.ROLE_ID, RM.ROLE_NAME, USA.SHED_NAME,
         USA.ASSIGNMENT_START_DATE, USA.ASSIGNMENT_END_DATE
       FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS FU

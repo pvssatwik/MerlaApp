@@ -10,6 +10,7 @@ const {
   verifyForgotOTP,
   resetPassword,
   logout,
+  checkEmail,
 } = require("../controllers/authController");
 const { verifyToken } = require("../middleware/auth");
 
@@ -22,5 +23,6 @@ router.post("/forgot-password", forgotPassword);
 router.post("/verify-forgot-otp", verifyForgotOTP);
 router.post("/reset-password", resetPassword);
 router.post("/logout", verifyToken, logout);
+router.get('/check-email', checkEmail);
 
 module.exports = router;

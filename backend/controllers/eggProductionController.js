@@ -543,10 +543,10 @@ const fetchGodownSyloStock = (req, res) => {
   });
 };
 
-// ── Shed Egg Production Summary ───────────────────────
-const fetchShedEggProductionSummary = (req, res) => {
+// ── Consolidated Summary (SUPERADMIN only) ────────────
+const fetchConsolidatedSummary = (req, res) => {
   const { filter, start_date, end_date } = req.query;
-  let dateCondition = buildDateCondition(
+  const dateCondition = buildDateCondition(
     "PRODUCTION_DATE",
     filter,
     start_date,
@@ -555,9 +555,42 @@ const fetchShedEggProductionSummary = (req, res) => {
 
   connection.execute({
     sqlText: `
-      SELECT * FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_PRODUCTION_SUMMARY
+      SELECT
+        PRODUCTION_DATE, FARM_NAME, SHED_NO, FLOCK_NAME,
+        AGE_WEEK, AGE_DAY, EGGS_PROD_COUNT, EGG_PRODUCTION_CHANGE,
+        TARGET_PCT, ACTUAL_PCT, DIFF_PCT,
+        PREVIOUS_DAY_BIRD_COUNT, MORTALITY_LOSS, COUNTER_LOSS,
+        CURRENT_DAY_BIRD_COUNT, FEED_USED, FEED_GRAMS_PER_BIRD,
+        DAILY_EGGS_PER_TON_FEED, AVG_MONTHLY_FEED_GRAMS_PER_BIRD
+      FROM MERLAFARMS.TRANSACTION.VW_DAILY_CONSOLIDATED_SUMMARY
       ${dateCondition}
-      ORDER BY PRODUCTION_DATE DESC
+      ORDER BY PRODUCTION_DATE DESC, SHED_NO ASC
+    `,
+    complete: (err, stmt, rows) => {
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
+      res.json({ success: true, data: rows });
+    },
+  });
+};
+
+// ── Shed Egg Production Summary ───────────────────────
+const fetchShedEggProductionSummary = (req, res) => {
+  const { filter, start_date, end_date } = req.query;
+  const dateCondition = buildDateCondition(
+    "PRODUCTION_DATE",
+    filter,
+    start_date,
+    end_date,
+  );
+
+  connection.execute({
+    sqlText: `
+      SELECT FARM_NAME, PRODUCTION_DATE, FLOCK_NAME, SHED_NO,
+             EGG_TYPE, DAILY_EGGS_PROD_COUNT
+      FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_PRODUCTION_SUMMARY
+      ${dateCondition}
+      ORDER BY PRODUCTION_DATE DESC, SHED_NO ASC
     `,
     complete: (err, stmt, rows) => {
       if (err)
@@ -570,7 +603,11 @@ const fetchShedEggProductionSummary = (req, res) => {
 // ── Shed Egg Balance ──────────────────────────────────
 const fetchShedEggBalance = (req, res) => {
   connection.execute({
-    sqlText: `SELECT * FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_EGG_BALANCE`,
+    sqlText: `
+      SELECT FARM_NAME, FLOCK_NAME, SHED_NO, SHED_BALANCE_EGG_COUNT
+      FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_EGG_BALANCE
+      ORDER BY SHED_NO ASC
+    `,
     complete: (err, stmt, rows) => {
       if (err)
         return res.status(500).json({ success: false, error: err.message });
@@ -582,7 +619,11 @@ const fetchShedEggBalance = (req, res) => {
 // ── Shed Feed Balance ─────────────────────────────────
 const fetchShedFeedBalance = (req, res) => {
   connection.execute({
-    sqlText: `SELECT * FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_FEED_BALANCE`,
+    sqlText: `
+      SELECT FARM_NAME, FLOCK_NAME, SHED_NO, FEED_TYPE, SHED_BALANCE_FEED
+      FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_FEED_BALANCE
+      ORDER BY SHED_NO ASC, FEED_TYPE ASC
+    `,
     complete: (err, stmt, rows) => {
       if (err)
         return res.status(500).json({ success: false, error: err.message });
@@ -716,4 +757,6 @@ module.exports = {
   fetchShedEggProductionSummary,
   fetchShedEggBalance,
   fetchShedFeedBalance,
+  buildDateCondition,
+  fetchConsolidatedSummary
 };

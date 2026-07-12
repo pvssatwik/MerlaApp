@@ -101,6 +101,47 @@ const SUMMARY_CARDS = [
     borderColor: "#f97316",
     screen: null,
   },
+  {
+    id: "shed_egg_prod",
+    title: "Shed Production",
+    icon: "🏠",
+    value: "--",
+    unit: "shed count",
+    color: "#fff7ed",
+    borderColor: "#f97316",
+    screen: "ShedEggProductionDetail",
+  },
+  {
+    id: "shed_egg_bal",
+    title: "Shed Egg Balance",
+    icon: "🥚",
+    value: "--",
+    unit: "balance eggs",
+    color: "#ecfdf5",
+    borderColor: "#10b981",
+    screen: "ShedEggBalanceDetail",
+  },
+  {
+    id: "shed_feed_bal",
+    title: "Shed Feed Balance",
+    icon: "🌾",
+    value: "--",
+    unit: "balance feed",
+    color: "#fefce8",
+    borderColor: "#eab308",
+    screen: "ShedFeedBalanceDetail",
+  },
+  // Superadmin only
+  {
+    id: "consolidated",
+    title: "Consolidated",
+    icon: "📊",
+    value: "--",
+    unit: "full report",
+    color: "#f0fdf4",
+    borderColor: "#22c55e",
+    screen: "ConsolidatedDetail",
+  },
 ];
 
 // ── Quick actions ─────────────────────────────────────────
@@ -140,6 +181,39 @@ const getRoleDisplayName = (role: string) => {
   };
   return names[role] || `${role}`;
 };
+
+// ── Role permissions ─────────────────────────────────────
+const SUPERVISOR_ROLES = [
+  "SUPERVISORS",
+  "EGG_GODOWN_SUPERVISOR",
+  "FEED_GODOWN_SUPERVISOR",
+  "6",
+  "7",
+  "8",
+];
+
+const ADMIN_VIEW_ROLES = ["ADMIN", "2"];
+
+const INCHARGE_ROLES = [
+  "INCHARGE",
+  "EGG_GODOWN_INCHARGE",
+  "FEED_GODOWN_INCHARGE",
+  "3",
+  "4",
+  "5",
+];
+
+const SUPERADMIN_ROLES = ["SUPER_ADMIN", "1"];
+
+const isSupervisor = (role: string) => SUPERVISOR_ROLES.includes(role);
+
+const isAdminViewOnly = (role: string) => ADMIN_VIEW_ROLES.includes(role);
+
+const isSuperAdmin = (role: string) => SUPERADMIN_ROLES.includes(role);
+
+const canViewSummaries = (role: string) => !isSupervisor(role);
+
+const canEnterData = (role: string) => !isAdminViewOnly(role);
 
 // ── Main component ────────────────────────────────────────
 const HomeScreen = ({ navigation }: any) => {
@@ -255,79 +329,123 @@ const HomeScreen = ({ navigation }: any) => {
         )}
 
         {/* ── Summary Cards ── */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Today's Summary</Text>
-          <Text style={styles.sectionHint}>Tap for details</Text>
-        </View>
+        {canViewSummaries(user?.role || "") && (
+          <>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionTitle}>Today's Summary</Text>
+              <Text style={styles.sectionHint}>Tap for details</Text>
+            </View>
 
-        <View style={styles.cardsGrid}>
-          {SUMMARY_CARDS.map((card) => (
-            <TouchableOpacity
-              key={card.id}
-              style={[
-                styles.summaryCard,
-                {
-                  backgroundColor: card.color,
-                  borderLeftColor: card.borderColor,
-                },
-                !card.screen && styles.summaryCardDisabled,
-              ]}
-              activeOpacity={card.screen ? 0.8 : 1}
-              onPress={() => handleCardPress(card)}
-            >
-              <Text style={styles.summaryCardIcon}>{card.icon}</Text>
-              <Text style={styles.summaryCardValue}>{card.value}</Text>
-              <Text style={styles.summaryCardTitle}>{card.title}</Text>
-              <Text style={styles.summaryCardUnit}>{card.unit}</Text>
-              {card.screen && <Text style={styles.summaryCardArrow}>→</Text>}
-            </TouchableOpacity>
-          ))}
-        </View>
+            <View style={styles.cardsGrid}>
+              {SUMMARY_CARDS.filter((card) => {
+                if (card.id === "consolidated") {
+                  return isSuperAdmin(user?.role || "");
+                }
+                return true;
+              }).map((card) => (
+                <TouchableOpacity
+                  key={card.id}
+                  style={[
+                    styles.summaryCard,
+                    {
+                      backgroundColor: card.color,
+                      borderLeftColor: card.borderColor,
+                    },
+                    !card.screen && styles.summaryCardDisabled,
+                  ]}
+                  activeOpacity={card.screen ? 0.8 : 1}
+                  onPress={() => handleCardPress(card)}
+                >
+                  <Text style={styles.summaryCardIcon}>{card.icon}</Text>
+                  <Text style={styles.summaryCardValue}>{card.value}</Text>
+                  <Text style={styles.summaryCardTitle}>{card.title}</Text>
+                  <Text style={styles.summaryCardUnit}>{card.unit}</Text>
+
+                  {card.screen && (
+                    <Text style={styles.summaryCardArrow}>→</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
 
         {/* ── Quick Entry ── */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Quick Entry</Text>
-        </View>
+        {canEnterData(user?.role || "") && (
+          <>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionTitle}>Quick Entry</Text>
+            </View>
 
-        <View style={styles.quickGrid}>
-          {QUICK_ACTIONS.map((action, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.quickCard}
-              activeOpacity={0.8}
-              onPress={() => navigateToForm(action.api)}
-            >
-              <Text style={styles.quickIcon}>{action.icon}</Text>
-              <Text style={styles.quickLabel}>{action.label}</Text>
-              <Text style={styles.quickArrow}>→</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+            <View style={styles.quickGrid}>
+              {QUICK_ACTIONS.map((action, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.quickCard}
+                  activeOpacity={0.8}
+                  onPress={() => navigateToForm(action.api)}
+                >
+                  <Text style={styles.quickIcon}>{action.icon}</Text>
+                  <Text style={styles.quickLabel}>{action.label}</Text>
+                  <Text style={styles.quickArrow}>→</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
 
         {/* ── All Modules ── */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>All Modules</Text>
-        </View>
+        {canEnterData(user?.role || "") && (
+          <>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionTitle}>All Modules</Text>
+            </View>
 
-        <View style={styles.modulesGrid}>
-          {FORMS.map((form, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.moduleCard}
-              activeOpacity={0.8}
-              onPress={() =>
-                navigation.navigate("DynamicForm", {
-                  title: form.title,
-                  fields: form.fields,
-                  api: form.api,
-                })
-              }
-            >
-              <Text style={styles.moduleIcon}>{getFormIcon(form.api)}</Text>
-              <Text style={styles.moduleText}>{form.title}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+            <View style={styles.modulesGrid}>
+              {FORMS.map((form, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.moduleCard}
+                  activeOpacity={0.8}
+                  onPress={() =>
+                    navigation.navigate("DynamicForm", {
+                      title: form.title,
+                      fields: form.fields,
+                      api: form.api,
+                    })
+                  }
+                >
+                  <Text style={styles.moduleIcon}>{getFormIcon(form.api)}</Text>
+
+                  <Text style={styles.moduleText}>{form.title}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+
+        {/* Admin view */}
+        {isAdminViewOnly(user?.role || "") && (
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>📊 Reports & Summaries</Text>
+            <Text style={styles.sectionHint}>View only access</Text>
+          </View>
+        )}
+
+        {/* Supervisor banner */}
+        {isSupervisor(user?.role || "") && (
+          <View style={styles.supervisorBanner}>
+            <Text style={styles.supervisorBannerIcon}>👷</Text>
+
+            <View>
+              <Text style={styles.supervisorBannerTitle}>Shed Data Entry</Text>
+
+              <Text style={styles.supervisorBannerSubtitle}>
+                Enter data for your assigned shed only
+              </Text>
+            </View>
+          </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -537,5 +655,30 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#374151",
     textAlign: "center",
+  },
+  supervisorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#eff6ff",
+    margin: 16,
+    borderRadius: 12,
+    padding: 14,
+    gap: 12,
+  },
+
+  supervisorBannerIcon: {
+    fontSize: 28,
+  },
+
+  supervisorBannerTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1e3a5f",
+  },
+
+  supervisorBannerSubtitle: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 2,
   },
 });

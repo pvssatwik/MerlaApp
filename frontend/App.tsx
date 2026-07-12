@@ -5,6 +5,7 @@ import { AuthProvider } from "./src/context/AuthContext";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { navigationRef } from "./src/navigation/rootNavigation";
 
+
 export default function App() {
   return (
     <AuthProvider>

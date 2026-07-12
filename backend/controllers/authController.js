@@ -359,7 +359,6 @@ const signUp = async (req, res) => {
     password,
     gov_id,
   } = req.body;
-  // ⚠️ Note: userid removed from required fields — now auto-generated
 
   if (
     !user_firstname ||
@@ -416,6 +415,28 @@ const signUp = async (req, res) => {
     console.error("SignUp error:", err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
+};
+
+// ── Check if email exists ─────────────────────────────
+const checkEmail = (req, res) => {
+  const { email } = req.query;
+  if (!email)
+    return res.status(400).json({ success: false, error: "Email required" });
+
+  connection.execute({
+    sqlText: `
+      SELECT COUNT(*) AS COUNT
+      FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS
+      WHERE USER_EMAIL = ?
+    `,
+    binds: [email],
+    complete: (err, stmt, rows) => {
+      if (err)
+        return res.status(500).json({ success: false, error: err.message });
+      const exists = rows[0].COUNT > 0;
+      res.json({ success: true, exists });
+    },
+  });
 };
 
 // ─────────────────────────────────────────────────────
@@ -977,4 +998,5 @@ module.exports = {
   verifyForgotOTP,
   resetPassword,
   logout,
+  checkEmail,
 };
