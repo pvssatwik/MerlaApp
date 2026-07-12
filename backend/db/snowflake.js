@@ -3,6 +3,14 @@ const snowflake = require("snowflake-sdk");
 const fs = require("fs");
 const path = require("path");
 
+console.log(
+  "SNOWFLAKE_PRIVATE_KEY_PATH =",
+  process.env.SNOWFLAKE_PRIVATE_KEY_PATH,
+);
+
+if (!process.env.SNOWFLAKE_PRIVATE_KEY_PATH) {
+  throw new Error("SNOWFLAKE_PRIVATE_KEY_PATH is missing.");
+}
 // Read private key file
 const privateKeyPath = path.resolve(process.env.SNOWFLAKE_PRIVATE_KEY_PATH);
 const privateKey = fs.readFileSync(privateKeyPath, "utf8");
