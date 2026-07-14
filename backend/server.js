@@ -37,6 +37,21 @@ app.get("/", (req, res) => {
     ],
   });
 });
+// Temporary debug endpoint — remove after testing
+app.get("/debug", (req, res) => {
+  res.json({
+    status: "OK",
+    node_env: process.env.NODE_ENV,
+    has_sf_key: !!process.env.SNOWFLAKE_PRIVATE_KEY,
+    has_sf_path: !!process.env.SNOWFLAKE_PRIVATE_KEY_PATH,
+    has_email: !!process.env.EMAIL_USER,
+    has_email_pw: !!process.env.EMAIL_PASS,
+    has_jwt: !!process.env.JWT_ACCESS_SECRET,
+    otp_bypass: process.env.OTP_BYPASS,
+    sf_account: process.env.SNOWFLAKE_ACCOUNT,
+    sf_user: process.env.SNOWFLAKE_USERNAME,
+  });
+});
 
 app.listen(process.env.PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${process.env.PORT}`);
