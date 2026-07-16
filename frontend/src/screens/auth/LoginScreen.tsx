@@ -21,9 +21,51 @@ const LoginScreen = ({ navigation }: any) => {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Validate email format
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Validate phone format (simple check for 10+ digits)
+  const isValidPhone = (phone: string): boolean => {
+    const phoneRegex = /^\d{10,}$/;
+    return phoneRegex.test(phone.replace(/\D/g, ""));
+  };
+
+  // Check if identifier is valid email or phone
+  const isValidIdentifier = (value: string): boolean => {
+    return isValidEmail(value) || isValidPhone(value);
+  };
+
+  // Validate password strength
+  const isValidPassword = (pass: string): boolean => {
+    return pass.length >= 6;
+  };
+
   const handleLogin = async () => {
-    if (!identifier || !password) {
-      Alert.alert("Validation", "Please enter email/phone and password");
+    // Validate identifier
+    if (!identifier) {
+      Alert.alert("Validation Error", "Please enter your email or phone number");
+      return;
+    }
+
+    if (!isValidIdentifier(identifier)) {
+      Alert.alert(
+        "Invalid Email/Phone",
+        "Please enter a valid email address or phone number (at least 10 digits)"
+      );
+      return;
+    }
+
+    // Validate password
+    if (!password) {
+      Alert.alert("Validation Error", "Please enter your password");
+      return;
+    }
+
+    if (!isValidPassword(password)) {
+      Alert.alert("Invalid Password", "Password must be at least 6 characters long");
       return;
     }
 
@@ -46,6 +88,23 @@ const LoginScreen = ({ navigation }: any) => {
       // User not approved yet
       if (error.message.includes("pending")) {
         navigation.navigate("PendingApproval");
+      }
+      // Invalid email/phone
+      else if (
+        error.message.includes("not found") ||
+        error.message.includes("does not exist") ||
+        error.message.includes("invalid email") ||
+        error.message.includes("invalid phone")
+      ) {
+        Alert.alert("Email/Phone Not Found", "No account found with this email or phone number. Please sign up.");
+      }
+      // Invalid password
+      else if (
+        error.message.includes("password") ||
+        error.message.includes("incorrect") ||
+        error.message.includes("invalid credentials")
+      ) {
+        Alert.alert("Wrong Password", "The password you entered is incorrect. Please try again.");
       } else {
         Alert.alert("Login Failed", error.message);
       }

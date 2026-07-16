@@ -344,6 +344,14 @@ const generateUserId = async (firstname, lastname) => {
     });
   });
 };
+
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value || "");
+const isValidPhone = (value) => {
+  const normalized = (value || "").replace(/\D/g, "");
+  return /^\d{10,}$/.test(normalized);
+};
+const isValidIdentifier = (value) => isValidEmail(value) || isValidPhone(value);
+const isValidPassword = (value) => (value || "").length >= 6;
 // ─────────────────────────────────────────────────────
 // 1. SIGN UP
 // ─────────────────────────────────────────────────────
@@ -449,6 +457,20 @@ const login = async (req, res) => {
     return res.status(400).json({
       success: false,
       error: "Email/phone and password are required",
+    });
+  }
+
+  if (!isValidIdentifier(identifier)) {
+    return res.status(400).json({
+      success: false,
+      error: "Please enter a valid email address or phone number",
+    });
+  }
+
+  if (!isValidPassword(password)) {
+    return res.status(400).json({
+      success: false,
+      error: "Password must be at least 6 characters",
     });
   }
 
