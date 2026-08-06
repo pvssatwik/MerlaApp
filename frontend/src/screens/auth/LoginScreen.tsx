@@ -128,8 +128,13 @@ const LoginScreen = ({ navigation }: any) => {
                   onChangeText={setPassword}
                   secureTextEntry={!showPass}
                 />
-                <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-                  <Text style={styles.showPass}>{showPass ? "🙈" : "👁️"}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowPass(!showPass)}
+                  style={styles.eyeBtn}
+                >
+                  <Text style={styles.eyeText}>
+                    {showPass ? "Hide" : "Show"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -242,6 +247,16 @@ const styles = StyleSheet.create({
   inputIcon: { fontSize: 16, marginRight: 8 },
   input: { flex: 1, fontSize: 14, color: "#111827" },
   showPass: { fontSize: 16, padding: 4 },
+  eyeBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+
+  eyeText: {
+    fontSize: 12,
+    color: "#6b7280",
+    fontWeight: "600",
+  },
 
   // Forgot
   forgotBtn: { alignSelf: "flex-end", marginBottom: 20 },
