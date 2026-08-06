@@ -5,62 +5,65 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  View,
 } from "react-native";
 
-type SnackbarProps = {
+type SnackbarType = "success" | "error" | "warning" | "info";
+
+type Props = {
   visible: boolean;
   message: string;
-  type?: "success" | "error" | "info" | "warning";
+  type?: SnackbarType;
   duration?: number;
   onDismiss: () => void;
 };
 
-const COLORS = {
-  success: { bg: "#166534", icon: "✅" },
-  error: { bg: "#991b1b", icon: "❌" },
-  info: { bg: "#1e40af", icon: "ℹ️" },
-  warning: { bg: "#92400e", icon: "⚠️" },
+const CONFIG: Record<
+  SnackbarType,
+  { bg: string; icon: string; accent: string }
+> = {
+  success: { bg: "#0f4c35", icon: "✅", accent: "#22c55e" },
+  error: { bg: "#4c0f0f", icon: "❌", accent: "#ef4444" },
+  warning: { bg: "#4c3a0f", icon: "⚠️", accent: "#f59e0b" },
+  info: { bg: "#0f2d4c", icon: "ℹ️", accent: "#3b82f6" },
 };
 
 const Snackbar = ({
   visible,
   message,
   type = "success",
-  duration = 3000,
+  duration = 3500,
   onDismiss,
-}: SnackbarProps) => {
-  const translateY = useRef(new Animated.Value(100)).current;
+}: Props) => {
+  const slideY = useRef(new Animated.Value(120)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const config = CONFIG[type];
 
   useEffect(() => {
     if (visible) {
-      // Slide up
       Animated.parallel([
-        Animated.timing(translateY, {
+        Animated.spring(slideY, {
           toValue: 0,
-          duration: 300,
           useNativeDriver: true,
+          tension: 60,
+          friction: 10,
         }),
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 300,
+          duration: 200,
           useNativeDriver: true,
         }),
       ]).start();
 
-      // Auto dismiss
-      const timer = setTimeout(() => {
-        dismiss();
-      }, duration);
-
+      const timer = setTimeout(dismiss, duration);
       return () => clearTimeout(timer);
     }
   }, [visible]);
 
   const dismiss = () => {
     Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: 100,
+      Animated.timing(slideY, {
+        toValue: 120,
         duration: 250,
         useNativeDriver: true,
       }),
@@ -74,21 +77,24 @@ const Snackbar = ({
 
   if (!visible) return null;
 
-  const color = COLORS[type];
-
   return (
     <Animated.View
       style={[
         styles.container,
-        { backgroundColor: color.bg, transform: [{ translateY }], opacity },
+        {
+          backgroundColor: config.bg,
+          borderLeftColor: config.accent,
+          transform: [{ translateY: slideY }],
+          opacity,
+        },
       ]}
     >
-      <Text style={styles.icon}>{color.icon}</Text>
-      <Text style={styles.message} numberOfLines={2}>
+      <Text style={styles.icon}>{config.icon}</Text>
+      <Text style={styles.message} numberOfLines={3}>
         {message}
       </Text>
-      <TouchableOpacity onPress={dismiss} style={styles.closeBtn}>
-        <Text style={styles.closeText}>✕</Text>
+      <TouchableOpacity onPress={dismiss} style={styles.dismissBtn}>
+        <Text style={[styles.dismissText, { color: config.accent }]}>✕</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -99,22 +105,23 @@ export default Snackbar;
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: Platform.OS === "ios" ? 40 : 24,
+    bottom: Platform.OS === "ios" ? 50 : 30,
     left: 16,
     right: 16,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderLeftWidth: 4,
     padding: 14,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    elevation: 8,
+    elevation: 10,
     shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     zIndex: 9999,
   },
-  icon: { fontSize: 18 },
+  icon: { fontSize: 20 },
   message: {
     flex: 1,
     color: "#fff",
@@ -122,6 +129,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     lineHeight: 20,
   },
-  closeBtn: { padding: 4 },
-  closeText: { color: "rgba(255,255,255,0.8)", fontSize: 16 },
+  dismissBtn: { padding: 4 },
+  dismissText: { fontSize: 16, fontWeight: "700" },
 });

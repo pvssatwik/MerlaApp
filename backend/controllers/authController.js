@@ -302,42 +302,46 @@ const buildPayload = (user) => {
 };
 
 const generateUserId = async (firstname, lastname) => {
-  const base =
-    (firstname?.[0] || "U").toUpperCase() +
-    (lastname || "USER").replace(/\s/g, "").substring(0, 5).toUpperCase();
+  // Take first letter of firstname + ALL letters of lastname (not just 5)
+  const firstPart = (firstname?.[0] || "U").toUpperCase();
+  const secondPart = (lastname || "USER")
+    .replace(/\s/g, "") // remove spaces
+    .replace(/[^a-zA-Z]/g, "") // remove special chars
+    .toUpperCase(); // uppercase
+
+  // Use full lastname regardless of length
+  const base = firstPart + secondPart;
 
   return new Promise((resolve, reject) => {
     connection.execute({
       sqlText: `
-        SELECT USERID FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS
+        SELECT USERID
+        FROM MERLAFARMS.APP_TRANSACTION.FARM_USERS
         WHERE USERID LIKE ?
-        ORDER BY USERID DESC
+        ORDER BY USERID
       `,
       binds: [`${base}%`],
       complete: (err, stmt, rows) => {
         if (err) return reject(err);
 
         if (!rows || rows.length === 0) {
-          return resolve(base); // no duplicates
+          return resolve(base); // no duplicates → use base
+        }
+
+        // Check if exact base exists
+        const exactMatch = rows.some((r) => r.USERID === base);
+        if (!exactMatch) {
+          return resolve(base);
         }
 
         // Find highest suffix number
         let maxSuffix = 0;
         rows.forEach((row) => {
-          const existing = row.USERID;
-          if (existing === base) {
-            maxSuffix = Math.max(maxSuffix, 0);
-          }
-          const match = existing.match(new RegExp(`^${base}(\\d+)$`));
+          const match = row.USERID.match(new RegExp(`^${base}(\\d+)$`));
           if (match) {
             maxSuffix = Math.max(maxSuffix, parseInt(match[1]));
           }
         });
-
-        const exactMatch = rows.some((r) => r.USERID === base);
-        if (!exactMatch && maxSuffix === 0) {
-          return resolve(base);
-        }
 
         resolve(`${base}${maxSuffix + 1}`);
       },

@@ -3,6 +3,12 @@
     "name": "Merla Farms",
     "slug": "merla-farms",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/your-project-id"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -24,18 +30,12 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.merlafarms.app",
       "versionCode": 1,
-      "permissions": [
-        "INTERNET",
-        "ACCESS_NETWORK_STATE"
-      ]
+      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "@react-native-community/datetimepicker",
-      "expo-secure-store"
-    ],
+    "plugins": ["@react-native-community/datetimepicker", "expo-secure-store"],
     "extra": {
       "eas": {
         "projectId": "c06ab432-568b-4954-a8c8-4e2964322fac"

@@ -35,6 +35,7 @@ const SignUpScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [checkingEmail, setChecking] = useState(false);
+  const [govIdError, setGovIdError] = useState("");
 
   const set = (key: string, val: any) =>
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -103,8 +104,17 @@ const SignUpScreen = ({ navigation }: any) => {
       Alert.alert("Validation", "Passwords do not match");
       return false;
     }
+    setGovIdError("");
+
     if (!form.govId) {
+      setGovIdError("Government ID is required");
       Alert.alert("Validation", "Government ID is required");
+      return false;
+    }
+
+    if (form.govId.length < 8) {
+      setGovIdError("Government ID must be at least 8 characters");
+      Alert.alert("Validation", "Government ID must be at least 8 characters");
       return false;
     }
     return true;
@@ -271,8 +281,13 @@ const SignUpScreen = ({ navigation }: any) => {
                   onChangeText={(v) => set("password", v)}
                   secureTextEntry={!showPass}
                 />
-                <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-                  <Text style={styles.eyeIcon}>{showPass ? "🙈" : "👁️"}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowPass(!showPass)}
+                  style={styles.eyeBtn}
+                >
+                  <Text style={styles.eyeText}>
+                    {showPass ? "Hide" : "Show"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -289,8 +304,13 @@ const SignUpScreen = ({ navigation }: any) => {
                   onChangeText={(v) => set("confirmPass", v)}
                   secureTextEntry={!showConf}
                 />
-                <TouchableOpacity onPress={() => setShowConf(!showConf)}>
-                  <Text style={styles.eyeIcon}>{showConf ? "🙈" : "👁️"}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowPass(!showPass)}
+                  style={styles.eyeBtn}
+                >
+                  <Text style={styles.eyeText}>
+                    {showPass ? "Hide" : "Show"}
+                  </Text>
                 </TouchableOpacity>
               </View>
               {form.confirmPass.length > 0 && (
@@ -313,13 +333,28 @@ const SignUpScreen = ({ navigation }: any) => {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Government-Issued ID *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, govIdError ? styles.inputError : null]}
                 placeholder="Aadhar / PAN / Passport No"
                 placeholderTextColor="#9ca3af"
                 value={form.govId}
-                onChangeText={(v) => set("govId", v)}
+                onChangeText={(v) => {
+                  // Allow only letters and numbers
+                  const cleaned = v.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+
+                  set("govId", cleaned);
+
+                  if (govIdError) {
+                    setGovIdError("");
+                  }
+                }}
                 autoCapitalize="characters"
+                maxLength={20}
               />
+
+              {govIdError ? (
+                <Text style={styles.errorText}>❌ {govIdError}</Text>
+              ) : null}
+
               <Text style={styles.hint}>
                 Aadhar card, PAN card, or Passport number
               </Text>
@@ -474,7 +509,16 @@ const styles = StyleSheet.create({
     height: 48,
   },
   passInput: { flex: 1, fontSize: 14, color: "#111827" },
-  eyeIcon: { fontSize: 16, padding: 4 },
+  eyeBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+
+  eyeText: {
+    fontSize: 12,
+    color: "#6b7280",
+    fontWeight: "600",
+  },
   matchText: { fontSize: 12, marginTop: 4 },
   matchOk: { color: "#16a34a" },
   matchErr: { color: "#dc2626" },
