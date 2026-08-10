@@ -53,6 +53,18 @@ app.get("/debug", (req, res) => {
   });
 });
 
+// Global unhandled promise rejection handler
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ Unhandled Rejection:", reason);
+  // Don't crash the server
+});
+
+// Global uncaught exception handler
+process.on("uncaughtException", (err) => {
+  console.error("❌ Uncaught Exception:", err.message);
+  // Don't crash the server
+});
+
 app.listen(process.env.PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${process.env.PORT}`);
   console.log(`Local:   http://localhost:${process.env.PORT}`);

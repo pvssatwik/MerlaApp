@@ -1,4 +1,4 @@
-const connection = require("../db/snowflake");
+const { execute } = require("../db/snowflake");
 
 const safe = (val, def = "") => (val !== undefined && val !== null ? val : def);
 const safeNum = (val) => {
@@ -7,7 +7,7 @@ const safeNum = (val) => {
 };
 
 // ── 1. Egg Production ─────────────────────────────────
-const insertEggProduction = (req, res) => {
+const insertEggProduction = async (req, res) => {
   const {
     farm_name,
     shed_no,
@@ -37,22 +37,29 @@ const insertEggProduction = (req, res) => {
 
   console.log("EggProduction binds:", binds);
 
-  connection.execute({
-    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_EGG_PRODUCTION_SUMMARY(?,?,?,?,?,?,?,?,?,?)`,
-    binds,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({
-        success: true,
-        message: rows[0]["SP_INS_DAILY_EGG_PRODUCTION_SUMMARY"],
-      });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_EGG_PRODUCTION_SUMMARY(?,?,?,?,?,?,?,?,?,?)`,
+      binds,
+    });
+
+    return res.json({
+      success: true,
+      message: rows[0]["SP_INS_DAILY_EGG_PRODUCTION_SUMMARY"],
+    });
+  } catch (err) {
+    console.error("EggProduction error:", err.message);
+
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── 2. Bird Live Stock ────────────────────────────────
-const insertBirdLiveStock = (req, res) => {
+// ── 2. Bird Live Stock ───────────────────────────────
+const insertBirdLiveStock = async (req, res) => {
   const {
     farm_name,
     shed_no,
@@ -79,22 +86,26 @@ const insertBirdLiveStock = (req, res) => {
 
   console.log("BirdLiveStock binds:", binds);
 
-  connection.execute({
-    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_BIRD_LIVE_STOCK(?,?,?,?,?,?,?,?,?)`,
-    binds,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({
-        success: true,
-        message: rows[0]["SP_INS_DAILY_BIRD_LIVE_STOCK"],
-      });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_BIRD_LIVE_STOCK(?,?,?,?,?,?,?,?,?)`,
+      binds,
+    });
+
+    return res.json({
+      success: true,
+      message: rows[0]["SP_INS_DAILY_BIRD_LIVE_STOCK"],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── 3. Egg Godown Stock ───────────────────────────────
-const insertEggGodownStock = (req, res) => {
+const insertEggGodownStock = async (req, res) => {
   const {
     farm_name,
     shed_no,
@@ -123,19 +134,26 @@ const insertEggGodownStock = (req, res) => {
 
   console.log("EggGodownStock binds:", binds);
 
-  connection.execute({
-    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_EGG_GODOWN_STOCK(?,?,?,?,?,?,?,?,?,?)`,
-    binds,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, message: rows[0]["SP_INS_EGG_GODOWN_STOCK"] });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_EGG_GODOWN_STOCK(?,?,?,?,?,?,?,?,?,?)`,
+      binds,
+    });
+
+    return res.json({
+      success: true,
+      message: rows[0]["SP_INS_EGG_GODOWN_STOCK"],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── 4. Egg Sale Summary ───────────────────────────────
-const insertEggSaleSummary = (req, res) => {
+const insertEggSaleSummary = async (req, res) => {
   const {
     farm_name,
     sale_date,
@@ -174,19 +192,26 @@ const insertEggSaleSummary = (req, res) => {
 
   console.log("EggSaleSummary binds:", binds);
 
-  connection.execute({
-    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_EGG_SALE_SUMMARY(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    binds,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, message: rows[0]["SP_INS_EGG_SALE_SUMMARY"] });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_EGG_SALE_SUMMARY(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      binds,
+    });
+
+    return res.json({
+      success: true,
+      message: rows[0]["SP_INS_EGG_SALE_SUMMARY"],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── 5. Feed Consumption ───────────────────────────────
-const insertFeedConsumption = (req, res) => {
+const insertFeedConsumption = async (req, res) => {
   const {
     farm_name,
     shed_no,
@@ -213,22 +238,26 @@ const insertFeedConsumption = (req, res) => {
 
   console.log("FeedConsumption binds:", binds);
 
-  connection.execute({
-    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_FEED_CONSUMPTION(?,?,?,?,?,?,?,?,?)`,
-    binds,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({
-        success: true,
-        message: rows[0]["SP_INS_DAILY_FEED_CONSUMPTION"],
-      });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_FEED_CONSUMPTION(?,?,?,?,?,?,?,?,?)`,
+      binds,
+    });
+
+    return res.json({
+      success: true,
+      message: rows[0]["SP_INS_DAILY_FEED_CONSUMPTION"],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── 6. Feed Production ────────────────────────────────
-const insertFeedProduction = (req, res) => {
+const insertFeedProduction = async (req, res) => {
   const {
     farm_name,
     production_date,
@@ -251,19 +280,26 @@ const insertFeedProduction = (req, res) => {
 
   console.log("FeedProduction binds:", binds);
 
-  connection.execute({
-    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_FEED_PRODUCTION(?,?,?,?,?,?,?)`,
-    binds,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, message: rows[0]["SP_INS_FEED_PRODUCTION"] });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_FEED_PRODUCTION(?,?,?,?,?,?,?)`,
+      binds,
+    });
+
+    return res.json({
+      success: true,
+      message: rows[0]["SP_INS_FEED_PRODUCTION"],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── 7. Feed Shed Stock ────────────────────────────────
-const insertFeedShedStock = (req, res) => {
+const insertFeedShedStock = async (req, res) => {
   const {
     farm_name,
     shed_no,
@@ -290,22 +326,26 @@ const insertFeedShedStock = (req, res) => {
 
   console.log("FeedShedStock binds:", binds);
 
-  connection.execute({
-    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_FEED_SHED_STOCK_SUMMARY(?,?,?,?,?,?,?,?,?)`,
-    binds,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({
-        success: true,
-        message: rows[0]["SP_INS_FEED_SHED_STOCK_SUMMARY"],
-      });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_FEED_SHED_STOCK_SUMMARY(?,?,?,?,?,?,?,?,?)`,
+      binds,
+    });
+
+    return res.json({
+      success: true,
+      message: rows[0]["SP_INS_FEED_SHED_STOCK_SUMMARY"],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── 8. Feed Supply ────────────────────────────────────
-const insertFeedSupply = (req, res) => {
+const insertFeedSupply = async (req, res) => {
   const {
     farm_name,
     shed_no,
@@ -328,38 +368,46 @@ const insertFeedSupply = (req, res) => {
 
   console.log("FeedSupply binds:", binds);
 
-  connection.execute({
-    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_FEED_SUPPLY(?,?,?,?,?,?,?)`,
-    binds,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, message: rows[0]["SP_INS_FEED_SUPPLY"] });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_FEED_SUPPLY(?,?,?,?,?,?,?)`,
+      binds,
+    });
+
+    return res.json({
+      success: true,
+      message: rows[0]["SP_INS_FEED_SUPPLY"],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── 9. Fetch Egg Productions list ─────────────────────
-const fetchEggProductions = (req, res) => {
-  connection.execute({
-    sqlText: `
-      SELECT FARM_NAME, SHED_NO, FLOCK_NO, PRODUCTION_DATE,
-        TRANSACTION_TYPE, EGG_TYPE, EGG_COUNT, TRIP_NO,
-        COMMNETS, WHO_CREATED, WHEN_CREATED
-      FROM MERLAFARMS.TRANSACTION.DAILY_EGG_PRODUCTION_SUMMARY
-      ORDER BY WHEN_CREATED DESC
-      LIMIT 100
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+const fetchEggProductions = async (req, res) => {
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT FARM_NAME, SHED_NO, FLOCK_NO, PRODUCTION_DATE,
+          TRANSACTION_TYPE, EGG_TYPE, EGG_COUNT, TRIP_NO,
+          COMMNETS, WHO_CREATED, WHEN_CREATED
+        FROM MERLAFARMS.TRANSACTION.DAILY_EGG_PRODUCTION_SUMMARY
+        ORDER BY WHEN_CREATED DESC
+        LIMIT 100
+      `,
+    });
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 // ── 10. Fetch Egg Production Summary View ─────────────
-const fetchEggProductionSummary = (req, res) => {
+const fetchEggProductionSummary = async (req, res) => {
   const { filter, start_date, end_date } = req.query;
 
   let dateCondition = "";
@@ -392,87 +440,88 @@ const fetchEggProductionSummary = (req, res) => {
 
   console.log("EggProductionSummary filter:", filter, dateCondition);
 
-  connection.execute({
-    sqlText: `
-      SELECT
-        PRODUCTION_DATE,
-        FLOCK_NAME,
-        SHED_NO,
-        AGE_WEEK,
-        AGE_DAY,
-        EGGS_PROD_COUNT,
-        EGG_PRODUCTION_CHANGE,
-        TARGET_PCT,
-        ACTUAL_PCT,
-        DIFF_PCT
-      FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_PRODUCTION_SUMMARY
-      ${dateCondition}
-      ORDER BY PRODUCTION_DATE DESC, SHED_NO ASC
-    `,
-    complete: (err, stmt, rows) => {
-      if (err) {
-        console.error("Summary view error:", err.message);
-        return res.status(500).json({ success: false, error: err.message });
-      }
-      res.json({ success: true, data: rows });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT
+          PRODUCTION_DATE,
+          FLOCK_NAME,
+          SHED_NO,
+          AGE_WEEK,
+          AGE_DAY,
+          EGGS_PROD_COUNT,
+          EGG_PRODUCTION_CHANGE,
+          TARGET_PCT,
+          ACTUAL_PCT,
+          DIFF_PCT
+        FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_PRODUCTION_SUMMARY
+        ${dateCondition}
+        ORDER BY PRODUCTION_DATE DESC, SHED_NO ASC
+      `,
+    });
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error("Summary view error:", err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 // ── 11. Egg Stock View ────────────────────────────────
-const fetchEggStockSummary = (req, res) => {
-  connection.execute({
-    sqlText: `
-      SELECT
-        OPENING_BAL,
-        PRODUCTION,
-        TOTAL,
-        SALES,
-        CLOSING_BALANCE,
-        MEDIUM_EGGS,
-        PULLETS
-      FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_STOCK
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+const fetchEggStockSummary = async (req, res) => {
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT
+          OPENING_BAL,
+          PRODUCTION,
+          TOTAL,
+          SALES,
+          CLOSING_BALANCE,
+          MEDIUM_EGGS,
+          PULLETS
+        FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_STOCK
+      `,
+    });
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 // ── 12. Egg Sales View ────────────────────────────────
-const fetchEggSalesSummary = (req, res) => {
-  const { filter, start_date, end_date } = req.query;
-  // VW_DAILY_EGG_SALES has no date column so filter not applied
-  connection.execute({
-    sqlText: `
-      SELECT
-        FARM_NAME,
-        SHED_NO,
-        FLOCK_NO,
-        EGGS,
-        DAMAGED,
-        PULLETS,
-        MEDIUM_EGGS,
-        TOTAL,
-        DAMAGE_PCT
-      FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SALES
-      ORDER BY SHED_NO ASC
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+const fetchEggSalesSummary = async (req, res) => {
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT
+          FARM_NAME,
+          SHED_NO,
+          FLOCK_NO,
+          EGGS,
+          DAMAGED,
+          PULLETS,
+          MEDIUM_EGGS,
+          TOTAL,
+          DAMAGE_PCT
+        FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SALES
+        ORDER BY SHED_NO ASC
+      `,
+    });
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 // ── 13. Cull Birds View ───────────────────────────────
-const fetchCullBirdsSummary = (req, res) => {
+const fetchCullBirdsSummary = async (req, res) => {
   const { filter, start_date, end_date } = req.query;
 
   let dateCondition = "";
+
   switch (filter) {
     case "today":
       dateCondition = `WHERE REPORTING_DATE = CURRENT_DATE`;
@@ -488,9 +537,10 @@ const fetchCullBirdsSummary = (req, res) => {
       break;
     case "custom":
       if (!start_date || !end_date) {
-        return res
-          .status(400)
-          .json({ success: false, error: "start_date and end_date required" });
+        return res.status(400).json({
+          success: false,
+          error: "start_date and end_date required",
+        });
       }
       dateCondition = `WHERE REPORTING_DATE BETWEEN '${start_date}' AND '${end_date}'`;
       break;
@@ -498,54 +548,57 @@ const fetchCullBirdsSummary = (req, res) => {
       dateCondition = `WHERE REPORTING_DATE = CURRENT_DATE`;
   }
 
-  connection.execute({
-    sqlText: `
-      SELECT
-        FARM_NAME,
-        SHED_NO,
-        FLOCK_NO,
-        REPORTING_DATE,
-        OPENING_BALANCE,
-        COUNTER,
-        TOTAL,
-        SALES,
-        DEATH,
-        TOTAL_SALES,
-        CLOSING_BALANCE
-      FROM MERLAFARMS.TRANSACTION.VW_CULL_BIRDS
-      ${dateCondition}
-      ORDER BY REPORTING_DATE DESC, SHED_NO ASC
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT
+          FARM_NAME,
+          SHED_NO,
+          FLOCK_NO,
+          REPORTING_DATE,
+          OPENING_BALANCE,
+          COUNTER,
+          TOTAL,
+          SALES,
+          DEATH,
+          TOTAL_SALES,
+          CLOSING_BALANCE
+        FROM MERLAFARMS.TRANSACTION.VW_CULL_BIRDS
+        ${dateCondition}
+        ORDER BY REPORTING_DATE DESC, SHED_NO ASC
+      `,
+    });
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 // ── 14. Godown Sylo Stock View ────────────────────────
-const fetchGodownSyloStock = (req, res) => {
-  connection.execute({
-    sqlText: `
-      SELECT
-        SYLO_NO,
-        FEED_TYPE,
-        FEED_BALANCE
-      FROM MERLAFARMS.TRANSACTION.VW_GODOWN_SYLO_STOCK
-      ORDER BY SYLO_NO ASC
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+const fetchGodownSyloStock = async (req, res) => {
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT
+          SYLO_NO,
+          FEED_TYPE,
+          FEED_BALANCE
+        FROM MERLAFARMS.TRANSACTION.VW_GODOWN_SYLO_STOCK
+        ORDER BY SYLO_NO ASC
+      `,
+    });
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 // ── Consolidated Summary (SUPERADMIN only) ────────────
-const fetchConsolidatedSummary = (req, res) => {
+const fetchConsolidatedSummary = async (req, res) => {
   const { filter, start_date, end_date } = req.query;
+
   const dateCondition = buildDateCondition(
     "PRODUCTION_DATE",
     filter,
@@ -553,30 +606,45 @@ const fetchConsolidatedSummary = (req, res) => {
     end_date,
   );
 
-  connection.execute({
-    sqlText: `
-      SELECT
-        PRODUCTION_DATE, FARM_NAME, SHED_NO, FLOCK_NAME,
-        AGE_WEEK, AGE_DAY, EGGS_PROD_COUNT, EGG_PRODUCTION_CHANGE,
-        TARGET_PCT, ACTUAL_PCT, DIFF_PCT,
-        PREVIOUS_DAY_BIRD_COUNT, MORTALITY_LOSS, COUNTER_LOSS,
-        CURRENT_DAY_BIRD_COUNT, FEED_USED, FEED_GRAMS_PER_BIRD,
-        DAILY_EGGS_PER_TON_FEED, AVG_MONTHLY_FEED_GRAMS_PER_BIRD
-      FROM MERLAFARMS.TRANSACTION.VW_DAILY_CONSOLIDATED_SUMMARY
-      ${dateCondition}
-      ORDER BY PRODUCTION_DATE DESC, SHED_NO ASC
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT
+          PRODUCTION_DATE,
+          FARM_NAME,
+          SHED_NO,
+          FLOCK_NAME,
+          AGE_WEEK,
+          AGE_DAY,
+          EGGS_PROD_COUNT,
+          EGG_PRODUCTION_CHANGE,
+          TARGET_PCT,
+          ACTUAL_PCT,
+          DIFF_PCT,
+          PREVIOUS_DAY_BIRD_COUNT,
+          MORTALITY_LOSS,
+          COUNTER_LOSS,
+          CURRENT_DAY_BIRD_COUNT,
+          FEED_USED,
+          FEED_GRAMS_PER_BIRD,
+          DAILY_EGGS_PER_TON_FEED,
+          AVG_MONTHLY_FEED_GRAMS_PER_BIRD
+        FROM MERLAFARMS.TRANSACTION.VW_DAILY_CONSOLIDATED_SUMMARY
+        ${dateCondition}
+        ORDER BY PRODUCTION_DATE DESC, SHED_NO ASC
+      `,
+    });
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 // ── Shed Egg Production Summary ───────────────────────
-const fetchShedEggProductionSummary = (req, res) => {
+const fetchShedEggProductionSummary = async (req, res) => {
   const { filter, start_date, end_date } = req.query;
+
   const dateCondition = buildDateCondition(
     "PRODUCTION_DATE",
     filter,
@@ -584,52 +652,69 @@ const fetchShedEggProductionSummary = (req, res) => {
     end_date,
   );
 
-  connection.execute({
-    sqlText: `
-      SELECT FARM_NAME, PRODUCTION_DATE, FLOCK_NAME, SHED_NO,
-             EGG_TYPE, DAILY_EGGS_PROD_COUNT
-      FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_PRODUCTION_SUMMARY
-      ${dateCondition}
-      ORDER BY PRODUCTION_DATE DESC, SHED_NO ASC
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT
+          FARM_NAME,
+          PRODUCTION_DATE,
+          FLOCK_NAME,
+          SHED_NO,
+          EGG_TYPE,
+          DAILY_EGGS_PROD_COUNT
+        FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_PRODUCTION_SUMMARY
+        ${dateCondition}
+        ORDER BY PRODUCTION_DATE DESC, SHED_NO ASC
+      `,
+    });
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 // ── Shed Egg Balance ──────────────────────────────────
-const fetchShedEggBalance = (req, res) => {
-  connection.execute({
-    sqlText: `
-      SELECT FARM_NAME, FLOCK_NAME, SHED_NO, SHED_BALANCE_EGG_COUNT
-      FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_EGG_BALANCE
-      ORDER BY SHED_NO ASC
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+const fetchShedEggBalance = async (req, res) => {
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT
+          FARM_NAME,
+          FLOCK_NAME,
+          SHED_NO,
+          SHED_BALANCE_EGG_COUNT
+        FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_EGG_BALANCE
+        ORDER BY SHED_NO ASC
+      `,
+    });
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 // ── Shed Feed Balance ─────────────────────────────────
-const fetchShedFeedBalance = (req, res) => {
-  connection.execute({
-    sqlText: `
-      SELECT FARM_NAME, FLOCK_NAME, SHED_NO, FEED_TYPE, SHED_BALANCE_FEED
-      FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_FEED_BALANCE
-      ORDER BY SHED_NO ASC, FEED_TYPE ASC
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+const fetchShedFeedBalance = async (req, res) => {
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT
+          FARM_NAME,
+          FLOCK_NAME,
+          SHED_NO,
+          FEED_TYPE,
+          SHED_BALANCE_FEED
+        FROM MERLAFARMS.TRANSACTION.VW_DAILY_EGG_SHED_FEED_BALANCE
+        ORDER BY SHED_NO ASC, FEED_TYPE ASC
+      `,
+    });
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 // Helper for date conditions
@@ -652,7 +737,7 @@ const buildDateCondition = (dateCol, filter, start_date, end_date) => {
 };
 
 // ── Shed Egg Production ───────────────────────────────
-const insertShedEggProduction = (req, res) => {
+const insertShedEggProduction = async (req, res) => {
   const {
     farm_name,
     shed_no,
@@ -681,22 +766,26 @@ const insertShedEggProduction = (req, res) => {
 
   console.log("ShedEggProduction binds:", binds);
 
-  connection.execute({
-    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_SHED_EGG_PRODUCTION(?,?,?,?,?,?,?,?,?,?)`,
-    binds,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({
-        success: true,
-        message: rows[0]["SP_INS_DAILY_SHED_EGG_PRODUCTION"],
-      });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_SHED_EGG_PRODUCTION(?,?,?,?,?,?,?,?,?,?)`,
+      binds,
+    });
+
+    return res.json({
+      success: true,
+      message: rows[0]["SP_INS_DAILY_SHED_EGG_PRODUCTION"],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── Shed Feed Received ────────────────────────────────
-const insertShedFeedReceived = (req, res) => {
+const insertShedFeedReceived = async (req, res) => {
   const {
     farm_name,
     shed_no,
@@ -723,18 +812,22 @@ const insertShedFeedReceived = (req, res) => {
 
   console.log("ShedFeedReceived binds:", binds);
 
-  connection.execute({
-    sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_SHED_FEED_RECEIVED(?,?,?,?,?,?,?,?,?)`,
-    binds,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({
-        success: true,
-        message: rows[0]["SP_INS_DAILY_SHED_FEED_RECEIVED"],
-      });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_DAILY_SHED_FEED_RECEIVED(?,?,?,?,?,?,?,?,?)`,
+      binds,
+    });
+
+    return res.json({
+      success: true,
+      message: rows[0]["SP_INS_DAILY_SHED_FEED_RECEIVED"],
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 module.exports = {
@@ -758,5 +851,5 @@ module.exports = {
   fetchShedEggBalance,
   fetchShedFeedBalance,
   buildDateCondition,
-  fetchConsolidatedSummary
+  fetchConsolidatedSummary,
 };
