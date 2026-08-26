@@ -1,65 +1,83 @@
-const connection = require("../db/snowflake");
+const { execute } = require("../db/snowflake");
 
 // ── Sheds ─────────────────────────────────────────────
-const getSheds = (req, res) => {
+const getSheds = async (req, res) => {
   const userRole = req.user?.role;
   const userSheds = req.user?.sheds || [];
 
   // Roles that see ALL sheds
-  const fullAccessRoles = ["SUPER_ADMIN", "ADMIN", "INCHARGE", "1"];
+  const fullAccessRoles = ["SUPER_ADMIN", "ADMIN", "INCHARGE", "1", "2", "3"];
+
   const hasFullAccess = fullAccessRoles.includes(userRole);
 
-  let sqlText = `
-    SELECT SHED_NO, SHED_NAME
-    FROM MERLAFARMS.MASTER.SHED_MASTER
-    WHERE FARM_NAME = 'MERLA_FARMS'
-  `;
-  let binds = [];
+  try {
+    let sqlText = `
+      SELECT SHED_NO, SHED_NAME
+      FROM MERLAFARMS.MASTER.SHED_MASTER
+      WHERE FARM_NAME = 'MERLA_FARMS'
+    `;
 
-  // Restrict to assigned sheds for supervisors/incharges
-  if (!hasFullAccess && userSheds.length > 0 && !userSheds.includes("ALL")) {
-    const placeholders = userSheds.map(() => "?").join(",");
-    sqlText += ` AND SHED_NAME IN (${placeholders})`;
-    binds = userSheds;
+    let binds = [];
+
+    if (!hasFullAccess && userSheds.length > 0 && !userSheds.includes("ALL")) {
+      const placeholders = userSheds.map(() => "?").join(",");
+      sqlText += ` AND SHED_NAME IN (${placeholders})`;
+      binds = userSheds;
+    }
+
+    sqlText += ` ORDER BY SHED_NAME`;
+
+    const { rows } = await execute({
+      sqlText,
+      binds,
+    });
+
+    res.json({
+      success: true,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("getSheds:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
   }
-
-  sqlText += ` ORDER BY SHED_NAME`;
-
-  connection.execute({
-    sqlText,
-    binds,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
 };
 
 // ── All Flocks ────────────────────────────────────────
-const getFlocks = (req, res) => {
-  connection.execute({
-    sqlText: `
-      SELECT FLOCK_NO, FLOCK_NAME
-      FROM MERLAFARMS.MASTER.FLOCK_MASTER
-      WHERE FARM_NAME = 'MERLA_FARMS'
-      ORDER BY FLOCK_NAME
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+const getFlocks = async (req, res) => {
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT FLOCK_NO, FLOCK_NAME
+        FROM MERLAFARMS.MASTER.FLOCK_MASTER
+        WHERE FARM_NAME = 'MERLA_FARMS'
+        ORDER BY FLOCK_NAME
+      `,
+    });
+
+    res.json({
+      success: true,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("getFlocks:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
-// ── Flocks by Shed (cascading) ────────────────────────
-const getFlocksByShed = (req, res) => {
+// ── Flocks by Shed ────────────────────────────────────
+const getFlocksByShed = async (req, res) => {
   const { shedName } = req.params;
   const userRole = req.user?.role;
   const userSheds = req.user?.sheds || [];
 
-  const fullAccessRoles = ["SUPER_ADMIN", "ADMIN", "INCHARGE", "1"];
+  const fullAccessRoles = ["SUPER_ADMIN", "ADMIN", "INCHARGE", "1", "2", "3"];
+
   const hasFullAccess = fullAccessRoles.includes(userRole);
 
   if (
@@ -73,113 +91,159 @@ const getFlocksByShed = (req, res) => {
     });
   }
 
-  connection.execute({
-    sqlText: `
-      SELECT FLOCK_NO, FLOCK_NAME
-      FROM MERLAFARMS.MASTER.FLOCK_MASTER
-      WHERE FARM_NAME = 'MERLA_FARMS'
-      AND (
-        CHICK_SHED_NAME = ?
-        OR LAYER_SHED_NAME = ?
-      )
-      ORDER BY FLOCK_NAME
-    `,
-    binds: [shedName, shedName],
-    complete: (err, stmt, rows) => {
-      if (err) {
-        console.error("getFlocksByShed error:", err.message);
-        return res.status(500).json({ success: false, error: err.message });
-      }
-      console.log(`Flocks for shed ${shedName}:`, rows?.length || 0);
-      console.log("Rows:", JSON.stringify(rows, null, 2));
-      res.json({ success: true, data: rows });
-    },
-  });
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT FLOCK_NO, FLOCK_NAME
+        FROM MERLAFARMS.MASTER.FLOCK_MASTER
+        WHERE FARM_NAME = 'MERLA_FARMS'
+          AND (
+            CHICK_SHED_NAME = ?
+            OR LAYER_SHED_NAME = ?
+          )
+        ORDER BY FLOCK_NAME
+      `,
+      binds: [shedName, shedName],
+    });
+
+    console.log(`Flocks for shed ${shedName}:`, rows.length);
+
+    res.json({
+      success: true,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("getFlocksByShed:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── Feed Types ────────────────────────────────────────
-const getFeeds = (req, res) => {
-  connection.execute({
-    sqlText: `
-      SELECT FEED_TYPE
-      FROM MERLAFARMS.MASTER.FEED_MASTER
-      WHERE FARM_NAME = 'MERLA_FARMS'
-      ORDER BY FEED_TYPE
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+const getFeeds = async (req, res) => {
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT FEED_TYPE
+        FROM MERLAFARMS.MASTER.FEED_MASTER
+        WHERE FARM_NAME = 'MERLA_FARMS'
+        ORDER BY FEED_TYPE
+      `,
+    });
+
+    res.json({
+      success: true,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("getFeeds:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── Egg Types ─────────────────────────────────────────
-const getEggTypes = (req, res) => {
-  connection.execute({
-    sqlText: `
-      SELECT EGG_TYPE
-      FROM MERLAFARMS.MASTER.EGG_TYPE_MASTER
-      WHERE FARM_NAME = 'MERLA_FARM'
-      ORDER BY EGG_TYPE
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+const getEggTypes = async (req, res) => {
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT EGG_TYPE
+        FROM MERLAFARMS.MASTER.EGG_TYPE_MASTER
+        WHERE FARM_NAME = 'MERLA_FARM'
+        ORDER BY EGG_TYPE
+      `,
+    });
+
+    res.json({
+      success: true,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("getEggTypes:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── Bird Loss Types ───────────────────────────────────
-const getBirdLossTypes = (req, res) => {
-  connection.execute({
-    sqlText: `
-      SELECT LOSS_TYPE
-      FROM MERLAFARMS.MASTER.BIRD_LOSS_TYPE_MASTER
-      WHERE FARM_NAME = 'MERLA_FARM'
-      ORDER BY LOSS_TYPE
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+const getBirdLossTypes = async (req, res) => {
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT LOSS_TYPE
+        FROM MERLAFARMS.MASTER.BIRD_LOSS_TYPE_MASTER
+        WHERE FARM_NAME = 'MERLA_FARM'
+        ORDER BY LOSS_TYPE
+      `,
+    });
+
+    res.json({
+      success: true,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("getBirdLossTypes:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── Egg Transaction Types ─────────────────────────────
-const getEggTransactionTypes = (req, res) => {
-  connection.execute({
-    sqlText: `
-      SELECT TRANSACTION_TYPE
-      FROM MERLAFARMS.MASTER.EGG_TRANSACTION_MASTER
-      WHERE FARM_NAME = 'MERLA_FARM'
-      ORDER BY TRANSACTION_TYPE
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+const getEggTransactionTypes = async (req, res) => {
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT TRANSACTION_TYPE
+        FROM MERLAFARMS.MASTER.EGG_TRANSACTION_MASTER
+        WHERE FARM_NAME = 'MERLA_FARM'
+        ORDER BY TRANSACTION_TYPE
+      `,
+    });
+
+    res.json({
+      success: true,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("getEggTransactionTypes:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 // ── Trip Numbers ──────────────────────────────────────
-const getTrips = (req, res) => {
-  connection.execute({
-    sqlText: `
-      SELECT TRIP_NO, TRIP_NAME
-      FROM MERLAFARMS.MASTER.TRIP_MASTER
-      WHERE FARM_NAME = 'MERLA_FARM'
-      ORDER BY TRIP_NO
-    `,
-    complete: (err, stmt, rows) => {
-      if (err)
-        return res.status(500).json({ success: false, error: err.message });
-      res.json({ success: true, data: rows });
-    },
-  });
+const getTrips = async (req, res) => {
+  try {
+    const { rows } = await execute({
+      sqlText: `
+        SELECT TRIP_NO, TRIP_NAME
+        FROM MERLAFARMS.MASTER.TRIP_MASTER
+        WHERE FARM_NAME = 'MERLA_FARM'
+        ORDER BY TRIP_NO
+      `,
+    });
+
+    res.json({
+      success: true,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("getTrips:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 };
 
 module.exports = {

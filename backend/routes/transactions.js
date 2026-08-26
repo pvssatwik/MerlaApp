@@ -30,7 +30,7 @@ const {
   checkShedAccess,
   checkDateRestriction,
 } = require("../middleware/auth");
-const dropdownController = require("../controllers/dropdownController");
+const dropdownController = require("../controllers/dropDownController");
 
 // Define role groups
 const SUPERVISOR_ROLES = [

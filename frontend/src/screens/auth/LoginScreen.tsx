@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -15,47 +15,62 @@ import {
 import { login } from "../../services/authService";
 
 const LoginScreen = ({ navigation }: any) => {
+  console.log("LOGIN SCREEN RENDERED");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const showSnackbar = (message: string, type: "success" | "error") => {
+    Alert.alert(type === "error" ? "Error" : "Success", message);
+  };
 
-  const handleLogin = async () => {
-  if (!identifier || !password) {
-    Alert.alert("Validation", "Please enter email/phone and password");
-    return;
-  }
+  const validateLogin = () => {
+    const value = identifier.trim();
 
-  setLoading(true);
-
-  try {
-    // Call backend login API
-    const result = await login({
-      identifier,
-      password,
-    });
-
-    // Navigate to OTP screen
-    navigation.navigate("OTP", {
-  userId: result.userId,
-  identifier: result.identifier,
-  flow: "login",
-});
-
-  } catch (error: any) {
-
-    // User not approved yet
-    if (error.message.includes("pending")) {
-      navigation.navigate("PendingApproval");
-
-    } else {
-      Alert.alert("Login Failed", error.message);
+    if (!value) {
+      showSnackbar("Please enter your email or phone number", "error");
+      return false;
     }
 
-  } finally {
-    setLoading(false);
-  }
-};
+    if (!password) {
+      showSnackbar("Please enter your password", "error");
+      return false;
+    }
+
+    if (password.length < 6) {
+      showSnackbar("Password must be at least 6 characters", "error");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleLogin = async () => {
+    if (!validateLogin()) return;
+
+    setLoading(true);
+
+    try {
+      const result = await login({
+        identifier: identifier.trim(),
+        password,
+      });
+
+      navigation.navigate("OTP", {
+        userId: result.userId,
+        identifier: result.identifier || identifier.trim(),
+        flow: "login",
+      });
+    } catch (error: any) {
+      if (error.message?.toLowerCase().includes("pending")) {
+        navigation.navigate("PendingApproval");
+      } else {
+        showSnackbar(error.message || "Login failed", "error");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.safe}>
@@ -93,9 +108,8 @@ const LoginScreen = ({ navigation }: any) => {
                   style={styles.input}
                   placeholder="Enter email or phone"
                   placeholderTextColor="#9ca3af"
-                  value={identifier}
-                  onChangeText={setIdentifier}
-                  keyboardType="email-address"
+                  onChangeText={(text) => setIdentifier(text)}
+                  keyboardType="default"
                   autoCapitalize="none"
                 />
               </View>
@@ -114,8 +128,13 @@ const LoginScreen = ({ navigation }: any) => {
                   onChangeText={setPassword}
                   secureTextEntry={!showPass}
                 />
-                <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-                  <Text style={styles.showPass}>{showPass ? "🙈" : "👁️"}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowPass(!showPass)}
+                  style={styles.eyeBtn}
+                >
+                  <Text style={styles.eyeText}>
+                    {showPass ? "Hide" : "Show"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -228,6 +247,16 @@ const styles = StyleSheet.create({
   inputIcon: { fontSize: 16, marginRight: 8 },
   input: { flex: 1, fontSize: 14, color: "#111827" },
   showPass: { fontSize: 16, padding: 4 },
+  eyeBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+
+  eyeText: {
+    fontSize: 12,
+    color: "#6b7280",
+    fontWeight: "600",
+  },
 
   // Forgot
   forgotBtn: { alignSelf: "flex-end", marginBottom: 20 },

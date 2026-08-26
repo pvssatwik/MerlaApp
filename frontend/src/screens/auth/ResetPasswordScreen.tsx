@@ -74,8 +74,13 @@ const ResetPasswordScreen = ({ navigation, route }: any) => {
                   onChangeText={setNew}
                   secureTextEntry={!showNew}
                 />
-                <TouchableOpacity onPress={() => setShowNew(!showNew)}>
-                  <Text style={styles.eyeIcon}>{showNew ? "🙈" : "👁️"}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowConf(!showConf)}
+                  style={styles.eyeBtn}
+                >
+                  <Text style={styles.eyeText}>
+                    {showConf ? "Hide" : "Show"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -92,8 +97,13 @@ const ResetPasswordScreen = ({ navigation, route }: any) => {
                   onChangeText={setConfirm}
                   secureTextEntry={!showConf}
                 />
-                <TouchableOpacity onPress={() => setShowConf(!showConf)}>
-                  <Text style={styles.eyeIcon}>{showConf ? "🙈" : "👁️"}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowConf(!showConf)}
+                  style={styles.eyeBtn}
+                >
+                  <Text style={styles.eyeText}>
+                    {showConf ? "Hide" : "Show"}
+                  </Text>
                 </TouchableOpacity>
               </View>
               {confirm.length > 0 && (
@@ -171,7 +181,16 @@ const styles = StyleSheet.create({
     height: 48,
   },
   passInput: { flex: 1, fontSize: 14, color: "#111827" },
-  eyeIcon: { fontSize: 16, padding: 4 },
+  eyeBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+
+  eyeText: {
+    fontSize: 12,
+    color: "#6b7280",
+    fontWeight: "600",
+  },
   matchText: { fontSize: 12, marginTop: 4 },
   matchOk: { color: "#16a34a" },
   matchErr: { color: "#dc2626" },

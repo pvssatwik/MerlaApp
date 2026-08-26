@@ -51,14 +51,11 @@ const OTPScreen = ({ navigation, route }: any) => {
 
   const handleVerify = async () => {
     const otpCode = otp.join("");
-
     if (otpCode.length < 6) {
       Alert.alert("Validation", "Please enter the 6-digit OTP");
       return;
     }
-
     setLoading(true);
-
     try {
       if (flow === "login") {
         const result = await verifyLoginOTP({
@@ -66,16 +63,24 @@ const OTPScreen = ({ navigation, route }: any) => {
           otp: otpCode,
           device_name: "Mobile App",
         });
-        console.log("Login user:", result.user);
 
-        // Save auth data
-        await setAuthData(result.user, result.accessToken, result.refreshToken);
-
-        resetToHome();
+        // Safely save to SecureStore
+        if (result.accessToken && result.refreshToken && result.user) {
+          await setAuthData(
+            result.user,
+            result.accessToken,
+            result.refreshToken,
+          );
+          navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+        } else {
+          Alert.alert(
+            "Error ❌",
+            "Login response incomplete. Please try again.",
+          );
+        }
       }
     } catch (error: any) {
       Alert.alert("Error ❌", error.message);
-
       setOtp(["", "", "", "", "", ""]);
     } finally {
       setLoading(false);
@@ -262,19 +267,21 @@ const styles = StyleSheet.create({
   },
 
   // OTP boxes
+  // Replace otpRow and otpBox styles:
   otpRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     marginBottom: 24,
-    gap: 6,
+    gap: 8,
+    paddingHorizontal: 8,
   },
   otpBox: {
-    width: 46,
-    height: 54,
+    width: 44, // slightly smaller to fit all screens
+    height: 52,
     borderWidth: 2,
     borderColor: "#e5e7eb",
     borderRadius: 12,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
     color: "#1e3a5f",
     backgroundColor: "#f9fafb",

@@ -3,9 +3,23 @@ const express = require("express");
 const cors = require("cors");
 
 const app = express();
-app.use(cors());
+//app.use(cors());
+// Production CORS
+app.use(
+  cors({
+    origin: "*", // or specify your app's bundle ID
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  next();
+});
 
 app.use("/api/transactions", require("./routes/transactions"));
 app.use("/api/auth", require("./routes/auth"));
@@ -22,6 +36,33 @@ app.get("/", (req, res) => {
       "...",
     ],
   });
+});
+// Temporary debug endpoint — remove after testing
+app.get("/debug", (req, res) => {
+  res.json({
+    status: "OK",
+    node_env: process.env.NODE_ENV,
+    has_sf_key: !!process.env.SNOWFLAKE_PRIVATE_KEY,
+    has_sf_path: !!process.env.SNOWFLAKE_PRIVATE_KEY_PATH,
+    has_email: !!process.env.EMAIL_USER,
+    has_email_pw: !!process.env.EMAIL_PASS,
+    has_jwt: !!process.env.JWT_ACCESS_SECRET,
+    otp_bypass: process.env.OTP_BYPASS,
+    sf_account: process.env.SNOWFLAKE_ACCOUNT,
+    sf_user: process.env.SNOWFLAKE_USERNAME,
+  });
+});
+
+// Global unhandled promise rejection handler
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ Unhandled Rejection:", reason);
+  // Don't crash the server
+});
+
+// Global uncaught exception handler
+process.on("uncaughtException", (err) => {
+  console.error("❌ Uncaught Exception:", err.message);
+  // Don't crash the server
 });
 
 app.listen(process.env.PORT, "0.0.0.0", () => {

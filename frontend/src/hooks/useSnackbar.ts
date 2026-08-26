@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
-type SnackbarType = "success" | "error" | "info" | "warning";
+type SnackbarType = "success" | "error" | "warning" | "info";
 
 export const useSnackbar = () => {
   const [snackbar, setSnackbar] = useState({
@@ -9,13 +9,16 @@ export const useSnackbar = () => {
     type: "success" as SnackbarType,
   });
 
-  const show = (message: string, type: SnackbarType = "success") => {
-    setSnackbar({ visible: true, message, type });
-  };
+  const show = useCallback(
+    (message: string, type: SnackbarType = "success") => {
+      setSnackbar({ visible: true, message, type });
+    },
+    [],
+  );
 
-  const hide = () => {
+  const hide = useCallback(() => {
     setSnackbar((prev) => ({ ...prev, visible: false }));
-  };
+  }, []);
 
   return { snackbar, show, hide };
 };
