@@ -48,7 +48,7 @@ export const FORMS = [
         required: true,
       },
       { name: "egg_count", label: "Egg Count", type: "number", required: true },
-      { name: "comments", label: "Comments", type: "text" },
+      { name: "comments", label: "Comments", type: "text", required: true },
     ],
   },
 
@@ -97,7 +97,7 @@ export const FORMS = [
         valueKey: "LOSS_TYPE",
         required: true,
       },
-      { name: "comments", label: "Comments", type: "text" },
+      { name: "comments", label: "Comments", type: "text", required: true },
     ],
   },
 
@@ -149,7 +149,7 @@ export const FORMS = [
         labelKey: "TRIP_NAME",
         valueKey: "TRIP_NAME",
       },
-      { name: "comments", label: "Comments", type: "text" },
+      { name: "comments", label: "Comments", type: "text", required: true },
     ],
   },
 
@@ -213,7 +213,7 @@ export const FORMS = [
         options: ["SMALL", "MEDIUM", "LARGE"],
       },
       { name: "vehicle_no", label: "Vehicle No", type: "text" },
-      { name: "comments", label: "Comments", type: "text" },
+      { name: "comments", label: "Comments", type: "text", required: true },
     ],
   },
 
@@ -257,7 +257,7 @@ export const FORMS = [
         required: true,
       },
       { name: "feed_used", label: "Feed Used", type: "number", required: true },
-      { name: "comments", label: "Comments", type: "text" },
+      { name: "comments", label: "Comments", type: "text", required: true },
     ],
   },
 
@@ -283,7 +283,7 @@ export const FORMS = [
       },
       { name: "volume", label: "Volume", type: "number", required: true },
       { name: "category", label: "Category", type: "text" },
-      { name: "comments", label: "Comments", type: "text" },
+      { name: "comments", label: "Comments", type: "text", required: true },
     ],
   },
 
@@ -327,7 +327,7 @@ export const FORMS = [
         required: true,
       },
       { name: "volume", label: "Volume", type: "number", required: true },
-      { name: "comments", label: "Comments", type: "text" },
+      { name: "comments", label: "Comments", type: "text", required: true },
     ],
   },
 
@@ -370,7 +370,7 @@ export const FORMS = [
         valueKey: "FEED_TYPE",
         required: true,
       },
-      { name: "comments", label: "Comments", type: "text" },
+      { name: "comments", label: "Comments", type: "text", required: true },
     ],
   },
 
@@ -400,7 +400,7 @@ export const FORMS = [
         options: ["IN", "OUT", "ADJUSTMENT"],
         required: true,
       },
-      { name: "comments", label: "Comments", type: "text" },
+      { name: "comments", label: "Comments", type: "text", required: true },
     ],
   },
 
@@ -453,7 +453,7 @@ export const FORMS = [
       },
       { name: "egg_count", label: "Egg Count", type: "number", required: true },
       { name: "batch_no", label: "Batch No", type: "text" },
-      { name: "comments", label: "Comments", type: "text" },
+      { name: "comments", label: "Comments", type: "text", required: true },
     ],
   },
   {
@@ -501,7 +501,7 @@ export const FORMS = [
         type: "number",
         required: true,
       },
-      { name: "comments", label: "Comments", type: "text" },
+      { name: "comments", label: "Comments", type: "text", required: true },
     ],
   },
 ];

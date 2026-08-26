@@ -35,7 +35,7 @@ type AuthContextType = {
     refreshToken: string,
   ) => Promise<void>;
   signOut: () => Promise<void>;
-  refreshAuth: () => Promise<void>;
+  refreshAuth: () => Promise<boolean>;
 };
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -59,6 +59,45 @@ export const AuthProvider = ({ children }: any) => {
       setSessionExpiredHandler(null);
     };
   }, []);
+  // ─── Auto-refresh access token before expiry ─────────────
+  useEffect(() => {
+    if (!accessToken) return;
+
+    try {
+      const parts = accessToken.split(".");
+      const payload = JSON.parse(atob(parts[1]));
+
+      const expiresIn = payload.exp * 1000 - Date.now();
+
+      // Refresh 2 minutes before expiry
+      const refreshIn = expiresIn - 2 * 60 * 1000;
+
+      if (refreshIn <= 0) {
+        console.log("Token expired/about to expire — refreshing now");
+
+        refreshAuth();
+        return;
+      }
+
+      console.log(
+        `Token refresh scheduled in ${Math.round(refreshIn / 1000 / 60)} mins`,
+      );
+
+      const timer = setTimeout(async () => {
+        console.log("Auto-refreshing token...");
+
+        const success = await refreshAuth();
+
+        if (!success) {
+          console.log("Auto-refresh failed, user will need to login again");
+        }
+      }, refreshIn);
+
+      return () => clearTimeout(timer);
+    } catch (e) {
+      console.error("Token schedule error:", e);
+    }
+  }, [accessToken]);
   const restoreSession = async () => {
     console.log("restoreSession started");
 
@@ -112,16 +151,27 @@ export const AuthProvider = ({ children }: any) => {
     setAccessToken(null);
   };
 
-  const refreshAuth = async () => {
+  const refreshAuth = async (): Promise<boolean> => {
     try {
       const result = await refreshAccessToken();
+
       if (result.accessToken) {
         const refresh = await getRefreshToken();
+
         await saveTokens(result.accessToken, refresh || "");
+
         setAccessToken(result.accessToken);
+
+        return true;
       }
-    } catch {
+
+      return false;
+    } catch (error) {
+      console.error("refreshAuth failed:", error);
+
       await signOut();
+
+      return false;
     }
   };
 

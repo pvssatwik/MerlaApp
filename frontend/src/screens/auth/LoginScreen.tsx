@@ -56,16 +56,41 @@ const LoginScreen = ({ navigation }: any) => {
         password,
       });
 
+      // Only continue if login was successful
+      if (!result || result.success === false) {
+        showSnackbar(
+          result?.error || "Login failed. Check your credentials.",
+          "error",
+        );
+        return;
+      }
+
+      // Successful login must have a userId
+      if (!result.userId) {
+        showSnackbar("Login failed. Please try again.", "error");
+        return;
+      }
+
+      // Only successful login reaches OTP
       navigation.navigate("OTP", {
         userId: result.userId,
         identifier: result.identifier || identifier.trim(),
         flow: "login",
       });
     } catch (error: any) {
-      if (error.message?.toLowerCase().includes("pending")) {
+      const message = error.message?.toLowerCase() || "";
+
+      if (message.includes("pending")) {
         navigation.navigate("PendingApproval");
+      } else if (message.includes("incorrect password")) {
+        showSnackbar("Incorrect password. Please try again.", "error");
+      } else if (message.includes("not found")) {
+        showSnackbar("No account found with this email or phone.", "error");
       } else {
-        showSnackbar(error.message || "Login failed", "error");
+        showSnackbar(
+          error.message || "Login failed. Please try again.",
+          "error",
+        );
       }
     } finally {
       setLoading(false);

@@ -101,29 +101,35 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
     {},
   );
   const [loadingDropdowns, setLoadingDropdowns] = useState(false);
+  const [loadingField, setLoadingField] = useState<string | null>(null);
+
+  // ─── Load non-cascading dropdowns ─────────────────────────
+  const loadInitialDropdowns = async () => {
+    setLoadingDropdowns(true);
+
+    try {
+      const results: Record<string, any[]> = {};
+
+      for (const field of fields) {
+        if (field.type === "dropdown_api" && !field.dependsOn) {
+          results[field.name] = await fetchDropdownData(field.apiSource);
+        }
+      }
+
+      setDropdownOptions((prev) => ({
+        ...prev,
+        ...results,
+      }));
+    } catch (error) {
+      console.error("Failed to load dropdowns:", error);
+    } finally {
+      setLoadingDropdowns(false);
+    }
+  };
 
   // ─── Load non-cascading dropdowns on mount ────────────
   useEffect(() => {
-    const loadDropdowns = async () => {
-      setLoadingDropdowns(true);
-      try {
-        const results: Record<string, any[]> = {};
-        for (const field of fields) {
-          if (field.type === "dropdown_api" && !field.dependsOn) {
-            results[field.name] = await fetchDropdownData(field.apiSource);
-          }
-        }
-        setDropdownOptions((prev) => ({
-          ...prev,
-          ...results,
-        }));
-      } catch (error) {
-        console.error("Failed to load dropdowns:", error);
-      } finally {
-        setLoadingDropdowns(false);
-      }
-    };
-    loadDropdowns();
+    loadInitialDropdowns();
   }, []);
 
   // ─── Auto-fill locked shed and load dependent dropdowns ───
@@ -174,7 +180,11 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
 
   // ─── Handle cascading dropdowns ───────────────────────
   const handleValueChange = async (fieldName: string, value: any) => {
-    setForm((prev: any) => ({ ...prev, [fieldName]: value }));
+    // Immediately set selected value
+    setForm((prev: any) => ({
+      ...prev,
+      [fieldName]: value,
+    }));
 
     const dependentFields = fields.filter(
       (f: any) => f.dependsOn === fieldName,
@@ -186,18 +196,40 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
     );
 
     for (const depField of dependentFields) {
-      setForm((prev: any) => ({ ...prev, [depField.name]: "" }));
-      setDropdownOptions((prev) => ({ ...prev, [depField.name]: [] }));
+      // Clear dependent field immediately
+      setForm((prev: any) => ({
+        ...prev,
+        [depField.name]: "",
+      }));
+
+      // Clear old options immediately
+      setDropdownOptions((prev) => ({
+        ...prev,
+        [depField.name]: [],
+      }));
+
+      // Show loading indicator for this specific field
+      setLoadingField(depField.name);
 
       try {
         console.log(
           `Loading ${depField.name} with apiSource=${depField.apiSource}, value=${value}`,
         );
+
         const data = await fetchDropdownData(depField.apiSource, value);
+
         console.log(`Loaded ${depField.name}:`, JSON.stringify(data));
-        setDropdownOptions((prev) => ({ ...prev, [depField.name]: data }));
+
+        // Store newly loaded options
+        setDropdownOptions((prev) => ({
+          ...prev,
+          [depField.name]: data,
+        }));
       } catch (err) {
         console.error(`Failed to load ${depField.name}:`, err);
+      } finally {
+        // Stop loading indicator
+        setLoadingField(null);
       }
     }
   };
@@ -260,11 +292,43 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
 
       if (result.success) {
         show(result.message || "Data saved successfully!", "success");
+
+        // Reset form
         setForm({});
+
+        // Clear old dropdown options
         setDropdownOptions({});
+
+        // Reload normal/non-cascading dropdowns
+        await loadInitialDropdowns();
+
+        // If shed is locked, reload its dependent dropdowns
+        if (lockedShed) {
+          const dependentFields = fields.filter(
+            (f: any) => f.dependsOn === "shed_no",
+          );
+
+          for (const depField of dependentFields) {
+            const data = await fetchDropdownData(
+              depField.apiSource,
+              lockedShed,
+            );
+
+            setDropdownOptions((prev) => ({
+              ...prev,
+              [depField.name]: data,
+            }));
+          }
+
+          // Keep the locked shed selected
+          setForm((prev: any) => ({
+            ...prev,
+            shed_no: lockedShed,
+          }));
+        }
       } else {
         show(
-          result.error || "Something went wrong. Please try again.",
+          result.error || "Failed to save entry. Please try again.",
           "error",
         );
       }
@@ -418,9 +482,12 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
                 <TouchableOpacity
                   style={[
                     styles.input,
+                    styles.dropdownBtn,
+
                     field.dependsOn &&
                       !form[field.dependsOn] &&
                       styles.inputDisabled,
+
                     field.name === "shed_no" &&
                       lockedShed &&
                       styles.inputLocked,
@@ -431,6 +498,12 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
                       return;
                     }
 
+                    // Don't allow opening while this field is loading
+                    if (loadingField === field.name) {
+                      return;
+                    }
+
+                    // Dependent dropdown requires parent selection
                     if (field.dependsOn && !form[field.dependsOn]) {
                       show(
                         `Please select ${field.dependsOn
@@ -444,21 +517,30 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
                     openDropdown(field);
                   }}
                 >
-                  <Text
-                    style={
-                      form[field.name] ? styles.dateText : styles.placeholder
-                    }
-                  >
-                    {form[field.name]
-                      ? form[field.name]
-                      : loadingDropdowns
-                        ? "Loading..."
-                        : field.dependsOn && !form[field.dependsOn]
-                          ? `Select ${field.dependsOn
-                              .replace("_no", "")
-                              .replace("_", " ")} first`
-                          : "Select option ▼"}
-                  </Text>
+                  {loadingField === field.name ? (
+                    <View style={styles.dropdownLoading}>
+                      <ActivityIndicator size="small" color="#1e3a5f" />
+
+                      <Text style={styles.dropdownLoadingText}>Loading...</Text>
+                    </View>
+                  ) : (
+                    <Text
+                      style={
+                        form[field.name] ? styles.dateText : styles.placeholder
+                      }
+                    >
+                      {form[field.name]
+                        ? form[field.name]
+                        : loadingDropdowns
+                          ? "Loading..."
+                          : field.dependsOn && !form[field.dependsOn]
+                            ? `Select ${field.dependsOn
+                                .replace("_no", "")
+                                .replace("_", " ")} first`
+                            : "Select option ▼"}
+                    </Text>
+                  )}
+
                   {field.name === "shed_no" && lockedShed && (
                     <Text style={styles.lockedIcon}>🔒</Text>
                   )}
@@ -586,6 +668,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     minHeight: 44,
     justifyContent: "center",
+  },
+  dropdownBtn: {
+    justifyContent: "center",
+  },
+
+  dropdownLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  dropdownLoadingText: {
+    fontSize: 14,
+    color: "#9ca3af",
   },
   inputDisabled: { backgroundColor: "#f3f4f6", borderColor: "#e5e7eb" },
   inputLocked: {
