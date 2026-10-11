@@ -263,7 +263,6 @@ const insertFeedProduction = async (req, res) => {
     production_date,
     feed_type,
     volume,
-    category,
     comments,
     who_created,
   } = req.body;
@@ -273,7 +272,6 @@ const insertFeedProduction = async (req, res) => {
     safe(production_date),
     safe(feed_type),
     safeNum(volume),
-    safe(category),
     safe(comments),
     safe(who_created, "APP_USER"),
   ];
@@ -282,7 +280,7 @@ const insertFeedProduction = async (req, res) => {
 
   try {
     const { rows } = await execute({
-      sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_FEED_PRODUCTION(?,?,?,?,?,?,?)`,
+      sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_FEED_PRODUCTION(?,?,?,?,?,?)`,
       binds,
     });
 
@@ -352,37 +350,27 @@ const insertFeedSupply = async (req, res) => {
     flock_no,
     supply_date,
     feed_type,
+    volume,
     comments,
     who_created,
   } = req.body;
 
-  const binds = [
-    safe(farm_name, "MERLA_FARMS"),
-    safe(shed_no),
-    safe(flock_no),
-    safe(supply_date),
-    safe(feed_type),
-    safe(comments),
-    safe(who_created, "APP_USER"),
-  ];
-
-  console.log("FeedSupply binds:", binds);
-
   try {
     const { rows } = await execute({
       sqlText: `CALL MERLAFARMS.TRANSACTION.SP_INS_FEED_SUPPLY(?,?,?,?,?,?,?)`,
-      binds,
+      binds: [
+        safe(farm_name, "MERLA_FARMS"),
+        safe(shed_no),
+        safe(flock_no),
+        safe(supply_date),
+        safe(feed_type),
+        safe(comments),
+        safe(who_created, "APP_USER"),
+      ],
     });
-
-    return res.json({
-      success: true,
-      message: rows[0]["SP_INS_FEED_SUPPLY"],
-    });
+    res.json({ success: true, message: "Feed supply recorded successfully!" });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: err.message,
-    });
+    res.status(500).json({ success: false, error: err.message });
   }
 };
 

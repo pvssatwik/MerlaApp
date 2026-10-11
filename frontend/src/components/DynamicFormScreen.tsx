@@ -333,12 +333,13 @@ const DynamicFormScreen = ({ route, navigation }: any) => {
         );
       }
     } catch (error: any) {
-      console.error(error);
-      const msg =
-        error.message === "Session expired. Please login again."
-          ? error.message
-          : "Could not connect to server.\nMake sure backend is running.";
-      show(msg, "error");
+      console.error("❌ Submit Error:", error);
+      console.error("❌ Error Message:", error?.message);
+
+      const message =
+        error?.message || "Something went wrong. Please try again.";
+
+      show(message, "error");
     } finally {
       setLoading(false);
     }
