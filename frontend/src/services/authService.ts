@@ -20,30 +20,124 @@ export {
 
 const post = async (url: string, body: any, token?: string) => {
   const headers: any = { ...API_HEADERS };
-  if (token) headers.Authorization = `Bearer ${token}`;
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
 
   const fullUrl = `${API_BASE_URL}${url}`;
 
-  console.log("🌐 URL:", fullUrl);
-  console.log("📦 BODY:", body);
+  console.log("══════════════════════════════");
+  console.log("📡 POST REQUEST");
+  console.log("📍 URL:", fullUrl);
+  console.log("══════════════════════════════");
+
+  let res: Response;
 
   try {
-    const res = await fetch(fullUrl, {
+    res = await fetch(fullUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
     });
 
-    console.log("✅ STATUS:", res.status);
+    console.log("✅ RESPONSE RECEIVED");
+    console.log("📊 STATUS:", res.status);
+  } catch (networkErr: any) {
+    console.log("════════ NETWORK ERROR ════════");
+    console.log("❌ ERROR:", networkErr);
+    console.log("❌ MESSAGE:", networkErr?.message);
+    console.log("❌ URL:", fullUrl);
+    console.log("═══════════════════════════════");
 
-    const result = await res.json();
-    console.log("✅ RESPONSE:", result);
+    const msg = networkErr?.message || "";
 
-    return result;
-  } catch (error) {
-    console.log("❌ FETCH ERROR:", error);
-    throw error;
+    if (msg.includes("Network request failed")) {
+      throw new Error(
+        "Cannot reach server. Check your internet connection and try again.",
+      );
+    }
+
+    throw new Error(`Connection error: ${msg || "Unknown error"}`);
   }
+
+  let result: any;
+
+  try {
+    result = await res.json();
+    console.log("📦 RESPONSE:", result);
+  } catch (jsonError: any) {
+    console.log("❌ JSON PARSE ERROR:", jsonError);
+
+    throw new Error(`Server returned invalid response (${res.status}).`);
+  }
+
+  if (!res.ok || result.success === false) {
+    console.log("❌ SERVER ERROR RESPONSE:", result);
+
+    throw new Error(
+      result.error || result.message || `Request failed (${res.status})`,
+    );
+  }
+
+  return result;
+};
+
+// ── GET helper ────────────────────────────────────────
+const get = async (url: string, token?: string) => {
+  const headers: any = { ...API_HEADERS };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const fullUrl = `${API_BASE_URL}${url}`;
+
+  console.log("══════════════════════════════");
+  console.log("📡 GET REQUEST");
+  console.log("📍 URL:", fullUrl);
+  console.log("══════════════════════════════");
+
+  let res: Response;
+
+  try {
+    res = await fetch(fullUrl, {
+      method: "GET",
+      headers,
+    });
+
+    console.log("✅ RESPONSE RECEIVED");
+    console.log("📊 STATUS:", res.status);
+  } catch (networkErr: any) {
+    console.log("════════ NETWORK ERROR ════════");
+    console.log("❌ ERROR:", networkErr);
+    console.log("❌ MESSAGE:", networkErr?.message);
+    console.log("❌ URL:", fullUrl);
+    console.log("═══════════════════════════════");
+
+    const msg = networkErr?.message || "";
+
+    throw new Error(`Connection error: ${msg || "Unknown error"}`);
+  }
+
+  let result: any;
+
+  try {
+    result = await res.json();
+    console.log("📦 RESPONSE:", result);
+  } catch (jsonError) {
+    console.log("❌ JSON PARSE ERROR:", jsonError);
+
+    throw new Error(`Server returned invalid response (${res.status}).`);
+  }
+
+  if (!res.ok || result.success === false) {
+    throw new Error(
+      result.error || result.message || `Request failed (${res.status})`,
+    );
+  }
+
+  return result;
 };
 
 export const signUp = (data: {

@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { getFriendlyMessage } from "../utils/messages";
 
 type SnackbarType = "success" | "error" | "warning" | "info";
 
@@ -11,7 +12,11 @@ export const useSnackbar = () => {
 
   const show = useCallback(
     (message: string, type: SnackbarType = "success") => {
-      setSnackbar({ visible: true, message, type });
+      const friendly = getFriendlyMessage(
+        message,
+        type === "error" ? "error" : "success",
+      );
+      setSnackbar({ visible: true, message: friendly, type });
     },
     [],
   );

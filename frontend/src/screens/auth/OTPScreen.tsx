@@ -10,10 +10,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Dimensions,
 } from "react-native";
 import { resendOTP, verifyLoginOTP } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
 import { resetToHome } from "../../navigation/rootNavigation";
+
+const { width } = Dimensions.get("window");
+const OTP_BOX_SIZE = Math.min(Math.floor((width - 80) / 6), 52);
+const OTP_FONT_SIZE = Math.min(OTP_BOX_SIZE * 0.45, 22);
+const OTP_GAP = Math.min(Math.floor((width - 80 - OTP_BOX_SIZE * 6) / 5), 10);
 
 const OTPScreen = ({ navigation, route }: any) => {
   const { userId, identifier, flow } = route.params;
@@ -149,10 +155,17 @@ const OTPScreen = ({ navigation, route }: any) => {
                 <TextInput
                   key={index}
                   ref={(ref) => {
-                    // ← fixed ref
                     inputs.current[index] = ref;
                   }}
-                  style={[styles.otpBox, digit ? styles.otpBoxFilled : null]}
+                  style={[
+                    styles.otpBox,
+                    {
+                      width: OTP_BOX_SIZE,
+                      height: OTP_BOX_SIZE + 8,
+                      fontSize: OTP_FONT_SIZE,
+                    },
+                    digit ? styles.otpBoxFilled : null,
+                  ]}
                   value={digit}
                   onChangeText={(v) =>
                     handleOtpChange(v.replace(/[^0-9]/g, ""), index)
@@ -161,6 +174,7 @@ const OTPScreen = ({ navigation, route }: any) => {
                   keyboardType="numeric"
                   maxLength={1}
                   selectTextOnFocus
+                  textAlign="center"
                 />
               ))}
             </View>
@@ -271,21 +285,20 @@ const styles = StyleSheet.create({
   otpRow: {
     flexDirection: "row",
     justifyContent: "center",
+    alignItems: "center",
     marginBottom: 24,
-    gap: 8,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
+    gap: OTP_GAP,
   },
   otpBox: {
-    width: 44, // slightly smaller to fit all screens
-    height: 52,
     borderWidth: 2,
     borderColor: "#e5e7eb",
     borderRadius: 12,
-    fontSize: 20,
     fontWeight: "700",
     color: "#1e3a5f",
     backgroundColor: "#f9fafb",
     textAlign: "center",
+    // width, height, fontSize set dynamically above
   },
   otpBoxFilled: {
     borderColor: "#1e3a5f",
